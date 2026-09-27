@@ -163,10 +163,10 @@
 
 <header class="sign">
   <div class="inner">
-    <div class="plate" id="plate" aria-hidden="true">5</div>
+    <div class="plate" id="plate" aria-hidden="true">C</div>
     <div>
       <h1>Dove scendo</h1>
-      <p>Stima in che punto del marciapiede ti troverai all'arrivo, in base al treno e alla carrozza.</p>
+      <p>In quale settore del marciapiede scendi all'arrivo, in base al treno e alla tua carrozza.</p>
     </div>
   </div>
 </header>
@@ -197,24 +197,25 @@
         </div>
         <label for="loco" id="locoWrap">Locomotiva
           <select id="loco">
-            <option value="last">Dal lato dell'ultima carrozza</option>
-            <option value="first">Dal lato della carrozza 1</option>
+            <option value="first">Prima della 1ª carrozza</option>
+            <option value="last">Dopo l'ultima carrozza</option>
             <option value="none">Non c'è / non so</option>
           </select>
         </label>
-        <label for="car">La tua carrozza (dal biglietto)
+        <label for="car">La tua carrozza
           <select id="car"></select>
+          <span class="hint">Posizione nel treno, contando solo le carrozze passeggeri (non la locomotiva). La trovi nell'app FFS alla voce "Composizione del treno".</span>
         </label>
       </fieldset>
 
       <fieldset class="sep">
-        <legend>Verso di marcia</legend>
-        <div class="seg" role="radiogroup" aria-label="Posizione della carrozza 1">
-          <label><input type="radio" name="orient" value="head" checked><span>La 1 in testa</span></label>
-          <label><input type="radio" name="orient" value="tail"><span>La 1 in coda</span></label>
+        <legend>Da dove conti le carrozze</legend>
+        <div class="seg" role="radiogroup" aria-label="Da quale estremità conti le carrozze">
+          <label><input type="radio" name="orient" value="head" checked><span>Dalla testa</span></label>
+          <label><input type="radio" name="orient" value="tail"><span>Dalla coda</span></label>
           <label><input type="radio" name="orient" value="both"><span>Non so</span></label>
         </div>
-        <span class="hint">Lo vedi dal cartello "composizione treni" in partenza, oppure guardando se le carrozze con numero più basso sono davanti.</span>
+        <span class="hint">Testa = la parte del treno che arriva per prima. Attenzione: in alcune stazioni (es. Zürich HB, Luzern) il treno cambia direzione e la testa diventa la coda.</span>
       </fieldset>
 
       <fieldset class="sep">
@@ -243,37 +244,70 @@
           <span class="hint">Separa più valori con una virgola. La testata è l'estremità del marciapiede verso cui viaggia il treno.</span>
         </label>
       </fieldset>
+
+      <fieldset class="sep">
+        <legend>Settori</legend>
+        <div class="row2">
+          <label for="nsec">Numero di settori
+            <select id="nsec">
+              <option value="0">Nessuno</option>
+              <option value="2">2 (A–B)</option>
+              <option value="3">3 (A–C)</option>
+              <option value="4" selected>4 (A–D)</option>
+              <option value="5">5 (A–E)</option>
+              <option value="6">6 (A–F)</option>
+              <option value="7">7 (A–G)</option>
+            </select>
+          </label>
+          <label for="secA">Il settore A è
+            <select id="secA">
+              <option value="head">Lato testata</option>
+              <option value="tail">Lato fondo</option>
+              <option value="unknown">Non so</option>
+            </select>
+          </label>
+        </div>
+        <label for="secLens">Lunghezza dei settori (m, facoltativo)
+          <input type="text" id="secLens" inputmode="decimal" value="" placeholder="es. 90, 110, 110, 90">
+          <span class="hint">Da A in poi. Se lasci vuoto, il marciapiede viene diviso in parti uguali. Le lettere sono sui cartelli blu appesi sopra il marciapiede.</span>
+        </label>
+      </fieldset>
     </form>
 
     <section class="results" id="results" aria-live="polite"></section>
   </div>
 
   <div class="note">
-    <p><strong>Quanto è affidabile.</strong> Le lunghezze dei treni sono valori indicativi per tipo di convoglio (arrotondati al metro). La posizione reale dipende dal punto in cui il macchinista ferma il treno: nelle stazioni capolinea la testa arriva quasi ai respingenti, nelle passanti ferma di solito al cartello di arresto a fine marciapiede, mentre i regionali corti possono fermarsi a metà.</p>
-    <p>In doppia composizione le carrozze sono numerate di seguito (es. 1–8 e 9–16): controlla il numero sul biglietto. Le impostazioni restano salvate su questo dispositivo.</p>
+    <p><strong>Quanto è affidabile.</strong> Le lunghezze dei treni sono valori indicativi per tipo di convoglio (arrotondati al metro). La posizione reale dipende dal punto in cui il macchinista ferma il treno: nelle stazioni di testa la testa arriva quasi ai respingenti, nelle passanti ferma di solito al segnale di arresto a fine marciapiede, mentre i treni corti possono fermarsi a metà. I settori reali non hanno tutti la stessa lunghezza: se li conosci, inseriscili per una stima più precisa.</p>
+    <p>In doppia o tripla composizione conta tutte le carrozze di seguito, attraverso le unità. Le impostazioni restano salvate su questo dispositivo.</p>
   </div>
 </main>
 
 <script>
 (function () {
   const rep = (n, v) => Array.from({ length: n }, () => v);
-  // Lunghezze in metri, dalla carrozza 1 all'ultima.
+  // Lunghezze indicative in metri, dalla 1ª carrozza all'ultima.
+  // "L" nella lista vehicles = locomotiva / motrice senza passeggeri.
   const MODELS = [
-    { id: "fr1000", group: "Frecciarossa", name: "Frecciarossa 1000 (ETR 400) · 8 carrozze", cars: [26.2, ...rep(6, 24.9), 26.2], maxUnits: 2 },
-    { id: "etr500", group: "Frecciarossa", name: "Frecciarossa ETR 500 · 11 carrozze", cars: rep(11, 26.1), locos: "both", locoLen: 20.2, maxUnits: 1 },
-    { id: "etr700", group: "Frecciargento", name: "Frecciargento ETR 700 · 8 carrozze", cars: rep(8, 25), maxUnits: 2 },
-    { id: "etr600", group: "Frecciargento", name: "Frecciargento ETR 600 / 485 · 7 carrozze", cars: [28, ...rep(5, 26.2), 28], maxUnits: 2 },
-    { id: "ic", group: "Intercity", name: "Intercity / Frecciabianca (loco + carrozze)", variable: { min: 3, max: 16, def: 9, len: 26.4 }, locoOption: true, locoLen: 19.2, maxUnits: 1 },
-    { id: "agv", group: "Italo", name: "Italo AGV 575 · 11 carrozze", cars: [22.2, ...rep(9, 17.3), 22.2], maxUnits: 2 },
-    { id: "evo", group: "Italo", name: "Italo EVO (ETR 675) · 7 carrozze", cars: [28, ...rep(5, 26.2), 28], maxUnits: 2 },
-    { id: "rock4", group: "Regionale", name: "Rock / Caravaggio · 4 casse", cars: [28.5, 26.5, 26.5, 28.5], maxUnits: 3 },
-    { id: "rock5", group: "Regionale", name: "Rock / Caravaggio · 5 casse", cars: [28.5, ...rep(3, 26.3), 28.5], maxUnits: 3 },
-    { id: "rock6", group: "Regionale", name: "Rock · 6 casse", cars: [28.5, ...rep(4, 26.3), 28.5], maxUnits: 2 },
-    { id: "pop3", group: "Regionale", name: "Pop (ETR 103) · 3 casse", cars: [22.6, 20.4, 22.6], maxUnits: 3 },
-    { id: "pop4", group: "Regionale", name: "Pop (ETR 104) · 4 casse", cars: [22.6, 20.4, 20.4, 22.6], maxUnits: 3 },
-    { id: "jazz", group: "Regionale", name: "Jazz (ETR 425) · 5 casse", cars: [17.9, 15.4, 15.4, 15.4, 17.9], maxUnits: 3 },
-    { id: "vivalto", group: "Regionale", name: "Vivalto (loco + carrozze a due piani)", variable: { min: 3, max: 10, def: 6, len: 26.4 }, locoOption: true, locoLen: 15.8, maxUnits: 1 },
-    { id: "tsr", group: "Regionale", name: "TSR Trenord (casse a due piani)", variable: { min: 3, max: 6, def: 5, len: 26.2 }, maxUnits: 2 },
+    { id: "giruno", group: "FFS lunga percorrenza", name: "Giruno (RABe 501) · 11 carrozze · 202 m", cars: [19.5, ...rep(9, 18.1), 19.5], maxUnits: 2 },
+    { id: "fvd200", group: "FFS lunga percorrenza", name: "FV-Dosto (RABe 502) · 8 carrozze · 200 m", cars: rep(8, 25), maxUnits: 2 },
+    { id: "fvd150", group: "FFS lunga percorrenza", name: "FV-Dosto (RABe 502) · 6 carrozze · 150 m", cars: rep(6, 25), maxUnits: 2 },
+    { id: "fvd100", group: "FFS lunga percorrenza", name: "FV-Dosto (RABe 502) · 4 carrozze · 100 m", cars: rep(4, 25), maxUnits: 3 },
+    { id: "icn", group: "FFS lunga percorrenza", name: "ICN pendolino (RABDe 500) · 7 carrozze · 189 m", cars: rep(7, 27), maxUnits: 2 },
+    { id: "astoro", group: "FFS lunga percorrenza", name: "Astoro / ETR 610 (RABe 503) · 7 carrozze · 187 m", cars: [28, ...rep(5, 26.2), 28], maxUnits: 2 },
+    { id: "ic2000", group: "FFS lunga percorrenza", name: "IC2000 a due piani (Re 460 + carrozze)", variable: { min: 4, max: 14, def: 9, len: 26.8 }, locoOption: true, locoLen: 18.5, maxUnits: 2 },
+    { id: "ew4", group: "FFS lunga percorrenza", name: "IC/IR con carrozze EW IV (Re 460 + carrozze)", variable: { min: 4, max: 14, def: 9, len: 26.4 }, locoOption: true, locoLen: 18.5, maxUnits: 1 },
+    { id: "kiss6", group: "Regionale / S-Bahn", name: "KISS (RABe 511) · 6 casse · 150 m", cars: rep(6, 25), maxUnits: 2 },
+    { id: "kiss4", group: "Regionale / S-Bahn", name: "KISS · 4 casse · 100 m", cars: rep(4, 25), maxUnits: 3 },
+    { id: "dtz", group: "Regionale / S-Bahn", name: "DTZ Desiro (RABe 514) · 4 casse · 100 m", cars: rep(4, 25), maxUnits: 3 },
+    { id: "dpz", group: "Regionale / S-Bahn", name: "DPZ S-Bahn Zürich (Re 450 + 3 carrozze)", cars: rep(3, 26.8), locoOption: true, locoLen: 18.4, maxUnits: 3 },
+    { id: "flirt4", group: "Regionale / S-Bahn", name: "FLIRT (RABe 521/523/524) · 4 casse · 74 m", cars: [19.4, 17.6, 17.6, 19.4], maxUnits: 3 },
+    { id: "flirt6", group: "Regionale / S-Bahn", name: "FLIRT TILO · 6 casse · ~106 m", cars: [19.4, ...rep(4, 16.8), 19.4], maxUnits: 2 },
+    { id: "domino", group: "Regionale / S-Bahn", name: "Domino / NPZ · 3 carrozze · ~75 m", cars: rep(3, 25), maxUnits: 3 },
+    { id: "lyria", group: "Internazionali", name: "TGV Lyria (Euroduplex) · 8 carrozze · 200 m", cars: rep(8, 19.45), locos: "both", locoLen: 22.2, maxUnits: 2 },
+    { id: "ice4s", group: "Internazionali", name: "ICE 4 · 7 carrozze · 200 m", cars: [29.1, ...rep(5, 28.3), 29.1], maxUnits: 2 },
+    { id: "ice4l", group: "Internazionali", name: "ICE 4 · 12 carrozze · 346 m", cars: [29.1, ...rep(10, 28.8), 29.1], maxUnits: 1 },
+    { id: "railjet", group: "Internazionali", name: "Railjet ÖBB · 7 carrozze + loco · 205 m", cars: rep(7, 26.5), locoOption: true, locoLen: 19.3, maxUnits: 2 },
     { id: "custom", group: "Altro", name: "Personalizzato", variable: { min: 1, max: 20, def: 8, len: 25 }, locoOption: true, custom: true, maxUnits: 3 }
   ];
   const WALK = 1.2; // m/s con bagaglio
@@ -285,7 +319,7 @@
     customWrap: $("customWrap"), carLen: $("carLen"), locoLen: $("locoLen"),
     loco: $("loco"), locoWrap: $("locoWrap"), car: $("car"),
     plen: $("plen"), stop: $("stop"), offset: $("offset"), offsetWrap: $("offsetWrap"),
-    exits: $("exits"), stypeHint: $("stypeHint"), results: $("results"), plate: $("plate")
+    exits: $("exits"), nsec: $("nsec"), secA: $("secA"), secLens: $("secLens"), stypeHint: $("stypeHint"), results: $("results"), plate: $("plate")
   };
 
   // Popola i treni per gruppo
@@ -362,11 +396,11 @@
     el.car.innerHTML = "";
     cars.forEach((c) => {
       const o = document.createElement("option");
-      o.value = String(c.num); o.textContent = "Carrozza " + c.num;
+      o.value = String(c.num); o.textContent = c.num + "ª carrozza";
       el.car.appendChild(o);
     });
     if (prevCar && cars.some((c) => String(c.num) === String(prevCar))) el.car.value = String(prevCar);
-    else el.car.value = String(Math.min(cars.length, 5));
+    else el.car.value = String(Math.min(cars.length, 3));
   }
 
   function stationDefaults() {
@@ -382,8 +416,8 @@
   function updateHints() {
     const t = radio("stype");
     el.stypeHint.textContent = t === "term"
-      ? "Terminale (es. Roma Termini, Milano Centrale, Firenze S.M.N.): la testa del treno si ferma vicino ai respingenti, dove c'è l'atrio."
-      : "Il treno prosegue oltre: di solito ferma con la testa verso la fine del marciapiede, nel senso di marcia.";
+      ? "Stazione di testa (es. Zürich HB binari 3–18, Luzern, Locarno): la testa del treno si ferma vicino ai respingenti, dove c'è l'atrio."
+      : "Il treno prosegue (es. Bern, Lugano, Bellinzona): di solito ferma con la testa verso la fine del marciapiede, nel senso di marcia.";
     el.offsetWrap.hidden = el.stop.value === "center";
   }
 
@@ -412,15 +446,40 @@
     return "fondo del marciapiede";
   }
 
-  function svgDiagram(res, carNum, L, exits, isTerm) {
+  const LETTERS = "ABCDEFG";
+  // Settori in coordinate "metri dalla testata", con A dal lato indicato
+  function sectors(L, aSide) {
+    const n = parseInt(el.nsec.value, 10) || 0;
+    if (!n) return [];
+    let lens = el.secLens.value.split(/[;,\s]+/).map((x) => num(x, NaN)).filter((x) => isFinite(x) && x > 0).slice(0, n);
+    if (lens.length !== n) lens = rep(n, L / n);
+    let p = 0;
+    return lens.map((len, i) => {
+      const from = p; p += len;
+      return aSide === "head" ? { letter: LETTERS[i], a: from, b: p } : { letter: LETTERS[i], a: L - p, b: L - from };
+    });
+  }
+  function sectorsFor(me, secs) {
+    if (!secs.length) return "";
+    const hit = secs.filter((z) => me.b > z.a + 1 && me.a < z.b - 1).map((z) => z.letter).sort();
+    if (!hit.length) return me.c < Math.min(...secs.map((z) => z.a)) || me.c > Math.max(...secs.map((z) => z.b)) ? "fuori settori" : "";
+    return hit.length > 1 ? hit[0] + "–" + hit[hit.length - 1] : hit[0];
+  }
+
+  function svgDiagram(res, carNum, L, exits, isTerm, secs) {
     const W = 1000, H = 170, padL = 24, padR = 40;
     const extent = Math.max(L, res.end) + 5;
     const k = (W - padL - padR) / extent;
     const x = (pos) => W - padR - pos * k;
     const ns = [];
     // marciapiede
-    ns.push(`<rect x="${x(L)}" y="78" width="${L * k}" height="28" fill="var(--platform)" rx="3"/>`);
+    ns.push(`<rect x="${x(L)}" y="78" width="${L * k}" height="30" fill="var(--platform)" rx="3"/>`);
     ns.push(`<rect x="${x(L)}" y="78" width="${L * k}" height="4" fill="var(--caution)"/>`);
+    secs.forEach((z, i) => {
+      const x1 = x(Math.min(L, z.b)), x2 = x(Math.max(0, z.a));
+      ns.push(`<line x1="${x2}" x2="${x2}" y1="76" y2="108" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>`);
+      ns.push(`<text x="${(x1 + x2) / 2}" y="103" text-anchor="middle" style="fill:var(--ink);font:700 22px var(--display)">${z.letter}</text>`);
+    });
     if (isTerm) ns.push(`<rect x="${x(0) + 2}" y="30" width="8" height="42" fill="var(--muted)" rx="2"/>`);
     // treno
     res.placed.forEach((v, i) => {
@@ -464,6 +523,8 @@
   }
 
   function scenarioHTML(title, orient, vehicles, carNum, L, exits, isTerm) {
+    const aSide = el.secA.value === "tail" ? "tail" : "head";
+    const secs = sectors(L, aSide);
     const res = layout(vehicles, orient, L);
     const me = res.placed.find((v) => v.kind === "car" && v.num === carNum);
     if (!me) return "";
@@ -479,6 +540,12 @@
         return dv < db ? v : b;
       }, cars[0]);
     }
+    let secText = sectorsFor(me, secs);
+    if (secText && el.secA.value === "unknown") {
+      const alt = sectorsFor(me, sectors(L, "tail"));
+      if (alt && alt !== secText) secText += " o " + alt;
+    }
+    scenarioHTML.lastSector = scenarioHTML.lastSector || secText;
     const warns = [];
     if (res.end > L + 1) warns.push(`Il treno (${fmtM(res.total)} m) sporge oltre il marciapiede di ${fmtM(res.end - L)} m: controlla lunghezza del marciapiede e punto di arresto.`);
     if (me.a > L) warns.push("La tua carrozza risulterebbe fuori dal marciapiede: di solito in questi casi si scende solo da alcune carrozze.");
@@ -489,16 +556,16 @@
           <span class="tag">Treno ${fmtM(res.total)} m</span>
         </div>
         <div class="big">
-          <div class="num">${fmtM(me.c)}<small>m</small></div>
-          <div class="cap">dalla testata del marciapiede, centro della carrozza ${carNum} (da ${fmtM(me.a)} a ${fmtM(me.b)} m). Zona: <strong>${zoneOf(me.c, L)}</strong>.</div>
+          ${secText ? `<div class="num">${secText}</div><div class="cap">settore dove si ferma la ${carNum}ª carrozza. Il centro della carrozza è a ${fmtM(me.c)} m dalla testata (${zoneOf(me.c, L)}).</div>`
+            : `<div class="num">${fmtM(me.c)}<small>m</small></div><div class="cap">dalla testata del marciapiede, centro della ${carNum}ª carrozza (da ${fmtM(me.a)} a ${fmtM(me.b)} m). Zona: <strong>${zoneOf(me.c, L)}</strong>.</div>`}
         </div>
         <dl class="facts">
           <div><dt>Uscita più vicina</dt><dd>${exitInfo}</dd></div>
           <div><dt>Posizione sul marciapiede</dt><dd>${Math.round(Math.min(100, (me.c / L) * 100))}% della lunghezza</dd></div>
-          <div><dt>Carrozza più vicina all'uscita</dt><dd>${bestCar ? (bestCar.num === carNum ? "La tua" : "Carrozza " + bestCar.num) : "—"}</dd></div>
+          <div><dt>Carrozza più vicina all'uscita</dt><dd>${bestCar ? (bestCar.num === carNum ? "La tua" : bestCar.num + "ª carrozza") : "—"}</dd></div>
         </dl>
         ${warns.map((w) => `<div class="warn">${w}</div>`).join("")}
-        <div class="diagram">${svgDiagram(res, carNum, L, exits, isTerm)}</div>
+        <div class="diagram">${svgDiagram(res, carNum, L, exits, isTerm, secs)}</div>
       </article>`;
   }
 
@@ -511,23 +578,25 @@
     const exits = el.exits.value.split(/[;,\s]+/).map((s) => num(s, NaN)).filter((n) => isFinite(n) && n >= 0);
     const isTerm = radio("stype") === "term";
     const orient = radio("orient");
-    el.plate.textContent = isFinite(carNum) ? carNum : "–";
+    scenarioHTML.lastSector = "";
     let html = "";
     if (orient === "both") {
-      html += scenarioHTML("Se la carrozza 1 è in testa", "head", vehicles, carNum, L, exits, isTerm);
-      html += scenarioHTML("Se la carrozza 1 è in coda", "tail", vehicles, carNum, L, exits, isTerm);
+      html += scenarioHTML("Se conti dalla testa", "head", vehicles, carNum, L, exits, isTerm);
+      html += scenarioHTML("Se conti dalla coda", "tail", vehicles, carNum, L, exits, isTerm);
     } else {
-      html += scenarioHTML(orient === "head" ? "Carrozza 1 in testa" : "Carrozza 1 in coda", orient, vehicles, carNum, L, exits, isTerm);
+      html += scenarioHTML(orient === "head" ? "Contando dalla testa" : "Contando dalla coda", orient, vehicles, carNum, L, exits, isTerm);
     }
     el.results.innerHTML = html;
+    const plate = (scenarioHTML.lastSector || "").split(/[ –]/)[0];
+    el.plate.textContent = orient === "both" || !plate || plate.length > 1 ? (isFinite(carNum) ? carNum : "–") : plate;
     // su schermi stretti mostra il lato della testata
     el.results.querySelectorAll(".diagram").forEach((d) => (d.scrollLeft = d.scrollWidth));
     save();
   }
 
   // Memoria locale
-  const KEY = "dove-scendo-v1";
-  const FIELDS = ["model", "units", "ncars", "carLen", "locoLen", "loco", "car", "plen", "stop", "offset", "exits"];
+  const KEY = "dove-scendo-ch-v1";
+  const FIELDS = ["model", "units", "ncars", "carLen", "locoLen", "loco", "car", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens"];
   function save() {
     try {
       const d = { orient: radio("orient"), stype: radio("stype") };
@@ -543,7 +612,7 @@
         const r = form.querySelector(`input[name="${n}"][value="${d[n]}"]`);
         if (r) r.checked = true;
       });
-      ["model", "ncars", "carLen", "locoLen", "loco", "plen", "stop", "offset", "exits"].forEach((f) => {
+      ["model", "ncars", "carLen", "locoLen", "loco", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens"].forEach((f) => {
         if (d[f] != null) el[f].value = d[f];
       });
       return d;
@@ -560,15 +629,15 @@
     render();
   });
   form.addEventListener("input", (e) => {
-    if (["plen", "offset", "exits", "carLen", "locoLen"].includes(e.target.id)) render();
+    if (["plen", "offset", "exits", "carLen", "locoLen", "secLens"].includes(e.target.id)) render();
   });
 
-  // Avvio: esempio Frecciarossa 1000, carrozza 5, arrivo a un capolinea
+  // Avvio: esempio Giruno, 3ª carrozza, arrivo in una stazione di testa
   const saved = load();
-  if (!saved) el.model.value = "fr1000";
+  if (!saved) el.model.value = "giruno";
   refreshTrainControls(saved && saved.car);
   if (saved && saved.units) { el.units.value = saved.units; refreshTrainControls(saved.car); }
-  if (!saved) el.car.value = "5";
+  if (!saved) el.car.value = "3";
   render();
 })();
 </script>
