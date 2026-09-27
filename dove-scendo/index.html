@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="it">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dove Scendo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --ink: #13233a;
+    --muted: #56677d;
+    --line: #cfd7e2;
+    --signal: #0f3d73;
+    --signal-ink: #ffffff;
+    --caution: #f5c518;
+    --caution-ink: #1d1a0a;
+    --car: #c9d6e8;
+    --car-ink: #13233a;
+    --loco: #7d8ea6;
+    --platform: #d9dfe7;
+    --warn-bg: #fff4d6;
+    --warn-ink: #6b4b00;
+    --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0c1420;
+      --panel: #142031;
+      --ink: #e5ecf5;
+      --muted: #93a4b9;
+      --line: #27384e;
+      --signal: #2f6fbf;
+      --car: #2b3f5a;
+      --car-ink: #e5ecf5;
+      --loco: #506580;
+      --platform: #223246;
+      --warn-bg: #3a2f10;
+      --warn-ink: #f5dc8a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0c1420;
+    --panel: #142031;
+    --ink: #e5ecf5;
+    --muted: #93a4b9;
+    --line: #27384e;
+    --signal: #2f6fbf;
+    --car: #2b3f5a;
+    --car-ink: #e5ecf5;
+    --loco: #506580;
+    --platform: #223246;
+    --warn-bg: #3a2f10;
+    --warn-ink: #f5dc8a;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 var(--body);
+    padding-inline: 16px;
+    padding-block: 0 48px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 20px; }
+
+  header.sign {
+    margin-inline: -16px;
+    background: var(--signal);
+    color: var(--signal-ink);
+    padding: 18px 16px 16px;
+    border-bottom: 6px solid var(--caution);
+  }
+  header.sign .inner { max-width: 980px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+  .plate {
+    flex: none;
+    width: 52px; height: 52px;
+    border: 3px solid var(--signal-ink);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font: 700 30px/1 var(--display);
+  }
+  header h1 { margin: 0; font: 700 34px/1 var(--display); letter-spacing: .01em; text-wrap: balance; }
+  header p { margin: 4px 0 0; font-size: 14px; opacity: .88; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  form.panel { display: grid; gap: 16px; }
+  fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 12px; }
+  legend {
+    font: 600 12px/1 var(--body); text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); padding: 0; margin-bottom: 10px;
+  }
+  .sep { border-top: 1px solid var(--line); padding-top: 16px; }
+  label { display: grid; gap: 5px; font-size: 13px; font-weight: 500; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  select, input[type="number"], input[type="text"] {
+    font: 500 15px/1.2 var(--body);
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 10px;
+    width: 100%;
+  }
+  input[type="number"], input[type="text"] { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  select:focus-visible, input:focus-visible, button:focus-visible, .seg input:focus-visible + span {
+    outline: 3px solid var(--caution); outline-offset: 1px;
+  }
+  .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+  .seg label { flex: 1; display: block; position: relative; font-weight: 500; }
+  .seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .seg span { display: block; text-align: center; padding: 9px 6px; font-size: 13px; cursor: pointer; }
+  .seg label + label span { border-left: 1px solid var(--line); }
+  .seg input:checked + span { background: var(--signal); color: var(--signal-ink); }
+
+  .results { display: grid; gap: 16px; }
+  .scenario { display: grid; gap: 14px; }
+  .scn-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+  .scn-head h2 { margin: 0; font: 700 22px/1.1 var(--display); letter-spacing: .01em; }
+  .tag {
+    font: 600 11px/1 var(--body); text-transform: uppercase; letter-spacing: .08em;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 99px; padding: 5px 9px; color: var(--muted);
+  }
+
+  .big { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 22px; }
+  .big .num { font: 700 64px/0.9 var(--display); font-variant-numeric: tabular-nums; }
+  .big .num small { font-size: 28px; margin-left: 2px; }
+  .big .cap { font-size: 14px; color: var(--muted); max-width: 30ch; padding-bottom: 4px; }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0; }
+  .facts div { border-top: 2px solid var(--line); padding-top: 8px; }
+  .facts dt { font-size: 12px; color: var(--muted); }
+  .facts dd { margin: 2px 0 0; font: 600 16px/1.3 var(--body); font-variant-numeric: tabular-nums; }
+
+  .diagram { overflow-x: auto; margin-inline: -4px; }
+  .diagram svg { display: block; width: 100%; min-width: 560px; height: auto; }
+  svg .t { fill: var(--ink); font: 500 13px var(--body); }
+  svg .tm { fill: var(--muted); font: 500 12px var(--mono); }
+  svg .tc { fill: var(--car-ink); font: 600 13px var(--mono); }
+  svg .tsel { fill: var(--caution-ink); font: 700 14px var(--mono); }
+
+  .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+  .note { font-size: 13px; color: var(--muted); max-width: 70ch; }
+  .note p { margin: 0 0 8px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    svg .selcar { transition: fill .2s; }
+  }
+</style>
+
+<header class="sign">
+  <div class="inner">
+    <div class="plate" id="plate" aria-hidden="true">5</div>
+    <div>
+      <h1>Dove scendo</h1>
+      <p>Stima in che punto del marciapiede ti troverai all'arrivo, in base al treno e alla carrozza.</p>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" style="padding-top:20px">
+  <div class="layout">
+    <form class="panel" id="f" autocomplete="off">
+      <fieldset>
+        <legend>Il tuo treno</legend>
+        <label for="model">Treno
+          <select id="model"></select>
+        </label>
+        <div class="row2">
+          <label for="units">Composizione
+            <select id="units"></select>
+          </label>
+          <label for="ncars" id="ncarsWrap">Carrozze
+            <input type="number" id="ncars" min="1" max="20" step="1">
+          </label>
+        </div>
+        <div class="row2" id="customWrap" hidden>
+          <label for="carLen">Lunghezza carrozza (m)
+            <input type="number" id="carLen" min="5" max="40" step="0.1" value="25">
+          </label>
+          <label for="locoLen">Locomotiva (m)
+            <input type="number" id="locoLen" min="0" max="30" step="0.1" value="19">
+          </label>
+        </div>
+        <label for="loco" id="locoWrap">Locomotiva
+          <select id="loco">
+            <option value="last">Dal lato dell'ultima carrozza</option>
+            <option value="first">Dal lato della carrozza 1</option>
+            <option value="none">Non c'è / non so</option>
+          </select>
+        </label>
+        <label for="car">La tua carrozza (dal biglietto)
+          <select id="car"></select>
+        </label>
+      </fieldset>
+
+      <fieldset class="sep">
+        <legend>Verso di marcia</legend>
+        <div class="seg" role="radiogroup" aria-label="Posizione della carrozza 1">
+          <label><input type="radio" name="orient" value="head" checked><span>La 1 in testa</span></label>
+          <label><input type="radio" name="orient" value="tail"><span>La 1 in coda</span></label>
+          <label><input type="radio" name="orient" value="both"><span>Non so</span></label>
+        </div>
+        <span class="hint">Lo vedi dal cartello "composizione treni" in partenza, oppure guardando se le carrozze con numero più basso sono davanti.</span>
+      </fieldset>
+
+      <fieldset class="sep">
+        <legend>Stazione di arrivo</legend>
+        <div class="seg" role="radiogroup" aria-label="Tipo di stazione">
+          <label><input type="radio" name="stype" value="term" checked><span>Capolinea</span></label>
+          <label><input type="radio" name="stype" value="through"><span>Passante</span></label>
+        </div>
+        <span class="hint" id="stypeHint"></span>
+        <div class="row2">
+          <label for="plen">Marciapiede (m)
+            <input type="number" id="plen" min="50" max="800" step="5" value="400">
+          </label>
+          <label for="stop">Arresto
+            <select id="stop">
+              <option value="end">Testa in fondo</option>
+              <option value="center">Centrato</option>
+            </select>
+          </label>
+        </div>
+        <label for="offset" id="offsetWrap">Distanza testa del treno dalla testata (m)
+          <input type="number" id="offset" min="0" max="300" step="1" value="5">
+        </label>
+        <label for="exits">Uscite / scale / sottopassi (m dalla testata)
+          <input type="text" id="exits" inputmode="decimal" value="0" placeholder="es. 0, 180">
+          <span class="hint">Separa più valori con una virgola. La testata è l'estremità del marciapiede verso cui viaggia il treno.</span>
+        </label>
+      </fieldset>
+    </form>
+
+    <section class="results" id="results" aria-live="polite"></section>
+  </div>
+
+  <div class="note">
+    <p><strong>Quanto è affidabile.</strong> Le lunghezze dei treni sono valori indicativi per tipo di convoglio (arrotondati al metro). La posizione reale dipende dal punto in cui il macchinista ferma il treno: nelle stazioni capolinea la testa arriva quasi ai respingenti, nelle passanti ferma di solito al cartello di arresto a fine marciapiede, mentre i regionali corti possono fermarsi a metà.</p>
+    <p>In doppia composizione le carrozze sono numerate di seguito (es. 1–8 e 9–16): controlla il numero sul biglietto. Le impostazioni restano salvate su questo dispositivo.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  const rep = (n, v) => Array.from({ length: n }, () => v);
+  // Lunghezze in metri, dalla carrozza 1 all'ultima.
+  const MODELS = [
+    { id: "fr1000", group: "Frecciarossa", name: "Frecciarossa 1000 (ETR 400) · 8 carrozze", cars: [26.2, ...rep(6, 24.9), 26.2], maxUnits: 2 },
+    { id: "etr500", group: "Frecciarossa", name: "Frecciarossa ETR 500 · 11 carrozze", cars: rep(11, 26.1), locos: "both", locoLen: 20.2, maxUnits: 1 },
+    { id: "etr700", group: "Frecciargento", name: "Frecciargento ETR 700 · 8 carrozze", cars: rep(8, 25), maxUnits: 2 },
+    { id: "etr600", group: "Frecciargento", name: "Frecciargento ETR 600 / 485 · 7 carrozze", cars: [28, ...rep(5, 26.2), 28], maxUnits: 2 },
+    { id: "ic", group: "Intercity", name: "Intercity / Frecciabianca (loco + carrozze)", variable: { min: 3, max: 16, def: 9, len: 26.4 }, locoOption: true, locoLen: 19.2, maxUnits: 1 },
+    { id: "agv", group: "Italo", name: "Italo AGV 575 · 11 carrozze", cars: [22.2, ...rep(9, 17.3), 22.2], maxUnits: 2 },
+    { id: "evo", group: "Italo", name: "Italo EVO (ETR 675) · 7 carrozze", cars: [28, ...rep(5, 26.2), 28], maxUnits: 2 },
+    { id: "rock4", group: "Regionale", name: "Rock / Caravaggio · 4 casse", cars: [28.5, 26.5, 26.5, 28.5], maxUnits: 3 },
+    { id: "rock5", group: "Regionale", name: "Rock / Caravaggio · 5 casse", cars: [28.5, ...rep(3, 26.3), 28.5], maxUnits: 3 },
+    { id: "rock6", group: "Regionale", name: "Rock · 6 casse", cars: [28.5, ...rep(4, 26.3), 28.5], maxUnits: 2 },
+    { id: "pop3", group: "Regionale", name: "Pop (ETR 103) · 3 casse", cars: [22.6, 20.4, 22.6], maxUnits: 3 },
+    { id: "pop4", group: "Regionale", name: "Pop (ETR 104) · 4 casse", cars: [22.6, 20.4, 20.4, 22.6], maxUnits: 3 },
+    { id: "jazz", group: "Regionale", name: "Jazz (ETR 425) · 5 casse", cars: [17.9, 15.4, 15.4, 15.4, 17.9], maxUnits: 3 },
+    { id: "vivalto", group: "Regionale", name: "Vivalto (loco + carrozze a due piani)", variable: { min: 3, max: 10, def: 6, len: 26.4 }, locoOption: true, locoLen: 15.8, maxUnits: 1 },
+    { id: "tsr", group: "Regionale", name: "TSR Trenord (casse a due piani)", variable: { min: 3, max: 6, def: 5, len: 26.2 }, maxUnits: 2 },
+    { id: "custom", group: "Altro", name: "Personalizzato", variable: { min: 1, max: 20, def: 8, len: 25 }, locoOption: true, custom: true, maxUnits: 3 }
+  ];
+  const WALK = 1.2; // m/s con bagaglio
+
+  const $ = (id) => document.getElementById(id);
+  const form = $("f");
+  const el = {
+    model: $("model"), units: $("units"), ncars: $("ncars"), ncarsWrap: $("ncarsWrap"),
+    customWrap: $("customWrap"), carLen: $("carLen"), locoLen: $("locoLen"),
+    loco: $("loco"), locoWrap: $("locoWrap"), car: $("car"),
+    plen: $("plen"), stop: $("stop"), offset: $("offset"), offsetWrap: $("offsetWrap"),
+    exits: $("exits"), stypeHint: $("stypeHint"), results: $("results"), plate: $("plate")
+  };
+
+  // Popola i treni per gruppo
+  const groups = {};
+  MODELS.forEach((m) => {
+    if (!groups[m.group]) {
+      groups[m.group] = document.createElement("optgroup");
+      groups[m.group].label = m.group;
+      el.model.appendChild(groups[m.group]);
+    }
+    const o = document.createElement("option");
+    o.value = m.id; o.textContent = m.name;
+    groups[m.group].appendChild(o);
+  });
+
+  const model = () => MODELS.find((m) => m.id === el.model.value) || MODELS[0];
+  const radio = (name) => (form.querySelector(`input[name="${name}"]:checked`) || {}).value;
+  const num = (v, d) => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : d; };
+
+  function carsPerUnit(m) {
+    if (!m.variable) return m.cars.length;
+    return Math.round(Math.min(m.variable.max, Math.max(m.variable.min, num(el.ncars.value, m.variable.def))));
+  }
+
+  // Veicoli in ordine dalla carrozza 1 all'ultima
+  function buildVehicles(m) {
+    const units = Math.max(1, parseInt(el.units.value, 10) || 1);
+    const n = carsPerUnit(m);
+    const carLen = m.custom ? num(el.carLen.value, 25) : m.variable ? m.variable.len : null;
+    const locoLen = m.custom ? num(el.locoLen.value, 19) : m.locoLen;
+    const out = [];
+    let k = 1;
+    for (let u = 0; u < units; u++) {
+      const unit = [];
+      const lens = m.variable ? rep(n, carLen) : m.cars;
+      lens.forEach((len) => unit.push({ num: k++, len, kind: "car" }));
+      if (m.locos === "both") {
+        unit.unshift({ num: null, len: locoLen, kind: "loco" });
+        unit.push({ num: null, len: locoLen, kind: "loco" });
+      } else if (m.locoOption && locoLen > 0) {
+        const where = el.loco.value;
+        if (where === "first") unit.unshift({ num: null, len: locoLen, kind: "loco" });
+        if (where === "last") unit.push({ num: null, len: locoLen, kind: "loco" });
+      }
+      out.push(...unit);
+    }
+    return out;
+  }
+
+  function refreshTrainControls(keepCar) {
+    const m = model();
+    const prevUnits = el.units.value;
+    el.units.innerHTML = "";
+    const labels = ["Singola", "Doppia", "Tripla"];
+    for (let i = 1; i <= m.maxUnits; i++) {
+      const o = document.createElement("option");
+      o.value = String(i); o.textContent = labels[i - 1];
+      el.units.appendChild(o);
+    }
+    el.units.value = prevUnits && +prevUnits <= m.maxUnits ? prevUnits : "1";
+    el.units.disabled = m.maxUnits === 1;
+
+    el.ncarsWrap.hidden = !m.variable;
+    if (m.variable) {
+      el.ncars.min = m.variable.min; el.ncars.max = m.variable.max;
+      const cur = num(el.ncars.value, NaN);
+      if (!(cur >= m.variable.min && cur <= m.variable.max)) el.ncars.value = m.variable.def;
+    }
+    el.customWrap.hidden = !m.custom;
+    el.locoWrap.hidden = !m.locoOption;
+
+    const prevCar = keepCar || el.car.value;
+    const cars = buildVehicles(m).filter((v) => v.kind === "car");
+    el.car.innerHTML = "";
+    cars.forEach((c) => {
+      const o = document.createElement("option");
+      o.value = String(c.num); o.textContent = "Carrozza " + c.num;
+      el.car.appendChild(o);
+    });
+    if (prevCar && cars.some((c) => String(c.num) === String(prevCar))) el.car.value = String(prevCar);
+    else el.car.value = String(Math.min(cars.length, 5));
+  }
+
+  function stationDefaults() {
+    const t = radio("stype");
+    const L = num(el.plen.value, 400);
+    if (t === "term") {
+      el.stop.value = "end"; el.offset.value = 5; el.exits.value = "0";
+    } else {
+      el.stop.value = "end"; el.offset.value = 15; el.exits.value = String(Math.round(L / 2));
+    }
+  }
+
+  function updateHints() {
+    const t = radio("stype");
+    el.stypeHint.textContent = t === "term"
+      ? "Terminale (es. Roma Termini, Milano Centrale, Firenze S.M.N.): la testa del treno si ferma vicino ai respingenti, dove c'è l'atrio."
+      : "Il treno prosegue oltre: di solito ferma con la testa verso la fine del marciapiede, nel senso di marcia.";
+    el.offsetWrap.hidden = el.stop.value === "center";
+  }
+
+  function layout(vehicles, orient, L) {
+    const seq = orient === "head" ? vehicles : vehicles.slice().reverse();
+    const total = seq.reduce((s, v) => s + v.len, 0);
+    const s = el.stop.value === "center" ? Math.max(0, (L - total) / 2) : Math.max(0, num(el.offset.value, 0));
+    let p = s;
+    const placed = seq.map((v) => { const a = p; p += v.len; return { ...v, a, b: p, c: (a + p) / 2 }; });
+    return { placed, total, s, end: p };
+  }
+
+  const fmtM = (x) => Math.round(x).toLocaleString("it-IT");
+  function fmtTime(sec) {
+    if (sec < 10) return "pochi secondi";
+    if (sec < 60) return "~" + Math.round(sec / 5) * 5 + " s";
+    const m = Math.floor(sec / 60), r = Math.round((sec % 60) / 10) * 10;
+    return "~" + m + " min" + (r ? " " + r + " s" : "");
+  }
+  function zoneOf(c, L) {
+    const f = c / L;
+    if (f < 0.25) return "lato testata";
+    if (f < 0.45) return "centro, verso la testata";
+    if (f <= 0.55) return "centro";
+    if (f <= 0.75) return "centro, verso il fondo";
+    return "fondo del marciapiede";
+  }
+
+  function svgDiagram(res, carNum, L, exits, isTerm) {
+    const W = 1000, H = 170, padL = 24, padR = 40;
+    const extent = Math.max(L, res.end) + 5;
+    const k = (W - padL - padR) / extent;
+    const x = (pos) => W - padR - pos * k;
+    const ns = [];
+    // marciapiede
+    ns.push(`<rect x="${x(L)}" y="78" width="${L * k}" height="28" fill="var(--platform)" rx="3"/>`);
+    ns.push(`<rect x="${x(L)}" y="78" width="${L * k}" height="4" fill="var(--caution)"/>`);
+    if (isTerm) ns.push(`<rect x="${x(0) + 2}" y="30" width="8" height="42" fill="var(--muted)" rx="2"/>`);
+    // treno
+    res.placed.forEach((v, i) => {
+      const sel = v.kind === "car" && v.num === carNum;
+      const fill = sel ? "var(--caution)" : v.kind === "loco" ? "var(--loco)" : "var(--car)";
+      const x1 = x(v.b) + 1, w = Math.max(1, v.len * k - 2);
+      const isHead = i === 0;
+      if (isHead) {
+        ns.push(`<path d="M${x1} 34 H${x1 + w - 12} Q${x1 + w} 34 ${x1 + w} 50 V70 H${x1} Z" fill="${fill}" class="${sel ? "selcar" : ""}"/>`);
+      } else {
+        ns.push(`<rect x="${x1}" y="34" width="${w}" height="36" rx="4" fill="${fill}" class="${sel ? "selcar" : ""}"/>`);
+      }
+      if (v.kind === "car" && w > 16) {
+        ns.push(`<text x="${x1 + w / 2}" y="57" text-anchor="middle" class="${sel ? "tsel" : "tc"}">${v.num}</text>`);
+      }
+    });
+    // indicatore della tua carrozza
+    const me = res.placed.find((v) => v.kind === "car" && v.num === carNum);
+    if (me) {
+      const cx = x(me.c);
+      ns.push(`<path d="M${cx - 7} 14 L${cx + 7} 14 L${cx} 26 Z" fill="var(--ink)"/>`);
+      ns.push(`<text x="${Math.min(W - 60, Math.max(40, cx))}" y="10" text-anchor="middle" class="t">tu</text>`);
+    }
+    // uscite
+    exits.forEach((e) => {
+      if (e < 0 || e > extent) return;
+      const ex = x(e);
+      ns.push(`<rect x="${ex - 9}" y="84" width="18" height="18" rx="3" fill="var(--signal)"/>`);
+      ns.push(`<text x="${ex}" y="97.5" text-anchor="middle" style="fill:var(--signal-ink);font:700 12px var(--body)">U</text>`);
+    });
+    // scala
+    const step = extent > 500 ? 100 : 50;
+    for (let m = 0; m <= L; m += step) {
+      ns.push(`<line x1="${x(m)}" x2="${x(m)}" y1="110" y2="116" stroke="var(--muted)" stroke-width="1"/>`);
+      ns.push(`<text x="${x(m)}" y="132" text-anchor="middle" class="tm">${m}</text>`);
+    }
+    ns.push(`<text x="${x(0)}" y="152" text-anchor="end" class="tm">testata · m</text>`);
+    ns.push(`<text x="${x(L)}" y="152" text-anchor="start" class="tm">fondo</text>`);
+    ns.push(`<text x="${W - 4}" y="56" text-anchor="end" class="t">▶</text>`);
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Schema del marciapiede con il treno e la tua carrozza evidenziata">${ns.join("")}</svg>`;
+  }
+
+  function scenarioHTML(title, orient, vehicles, carNum, L, exits, isTerm) {
+    const res = layout(vehicles, orient, L);
+    const me = res.placed.find((v) => v.kind === "car" && v.num === carNum);
+    if (!me) return "";
+    let exitInfo = "—", bestCar = null, walk = null;
+    if (exits.length) {
+      const near = exits.reduce((b, e) => (Math.abs(e - me.c) < Math.abs(b - me.c) ? e : b), exits[0]);
+      walk = Math.max(0, Math.abs(near - me.c) - me.len / 2);
+      exitInfo = fmtM(walk) + " m · " + fmtTime(walk / WALK);
+      const cars = res.placed.filter((v) => v.kind === "car");
+      bestCar = cars.reduce((b, v) => {
+        const dv = Math.min(...exits.map((e) => Math.abs(e - v.c)));
+        const db = Math.min(...exits.map((e) => Math.abs(e - b.c)));
+        return dv < db ? v : b;
+      }, cars[0]);
+    }
+    const warns = [];
+    if (res.end > L + 1) warns.push(`Il treno (${fmtM(res.total)} m) sporge oltre il marciapiede di ${fmtM(res.end - L)} m: controlla lunghezza del marciapiede e punto di arresto.`);
+    if (me.a > L) warns.push("La tua carrozza risulterebbe fuori dal marciapiede: di solito in questi casi si scende solo da alcune carrozze.");
+    return `
+      <article class="panel scenario">
+        <div class="scn-head">
+          <h2>${title}</h2>
+          <span class="tag">Treno ${fmtM(res.total)} m</span>
+        </div>
+        <div class="big">
+          <div class="num">${fmtM(me.c)}<small>m</small></div>
+          <div class="cap">dalla testata del marciapiede, centro della carrozza ${carNum} (da ${fmtM(me.a)} a ${fmtM(me.b)} m). Zona: <strong>${zoneOf(me.c, L)}</strong>.</div>
+        </div>
+        <dl class="facts">
+          <div><dt>Uscita più vicina</dt><dd>${exitInfo}</dd></div>
+          <div><dt>Posizione sul marciapiede</dt><dd>${Math.round(Math.min(100, (me.c / L) * 100))}% della lunghezza</dd></div>
+          <div><dt>Carrozza più vicina all'uscita</dt><dd>${bestCar ? (bestCar.num === carNum ? "La tua" : "Carrozza " + bestCar.num) : "—"}</dd></div>
+        </dl>
+        ${warns.map((w) => `<div class="warn">${w}</div>`).join("")}
+        <div class="diagram">${svgDiagram(res, carNum, L, exits, isTerm)}</div>
+      </article>`;
+  }
+
+  function render() {
+    updateHints();
+    const m = model();
+    const vehicles = buildVehicles(m);
+    const carNum = parseInt(el.car.value, 10);
+    const L = Math.max(20, num(el.plen.value, 400));
+    const exits = el.exits.value.split(/[;,\s]+/).map((s) => num(s, NaN)).filter((n) => isFinite(n) && n >= 0);
+    const isTerm = radio("stype") === "term";
+    const orient = radio("orient");
+    el.plate.textContent = isFinite(carNum) ? carNum : "–";
+    let html = "";
+    if (orient === "both") {
+      html += scenarioHTML("Se la carrozza 1 è in testa", "head", vehicles, carNum, L, exits, isTerm);
+      html += scenarioHTML("Se la carrozza 1 è in coda", "tail", vehicles, carNum, L, exits, isTerm);
+    } else {
+      html += scenarioHTML(orient === "head" ? "Carrozza 1 in testa" : "Carrozza 1 in coda", orient, vehicles, carNum, L, exits, isTerm);
+    }
+    el.results.innerHTML = html;
+    // su schermi stretti mostra il lato della testata
+    el.results.querySelectorAll(".diagram").forEach((d) => (d.scrollLeft = d.scrollWidth));
+    save();
+  }
+
+  // Memoria locale
+  const KEY = "dove-scendo-v1";
+  const FIELDS = ["model", "units", "ncars", "carLen", "locoLen", "loco", "car", "plen", "stop", "offset", "exits"];
+  function save() {
+    try {
+      const d = { orient: radio("orient"), stype: radio("stype") };
+      FIELDS.forEach((f) => (d[f] = el[f].value));
+      localStorage.setItem(KEY, JSON.stringify(d));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (!d) return null;
+      ["orient", "stype"].forEach((n) => {
+        const r = form.querySelector(`input[name="${n}"][value="${d[n]}"]`);
+        if (r) r.checked = true;
+      });
+      ["model", "ncars", "carLen", "locoLen", "loco", "plen", "stop", "offset", "exits"].forEach((f) => {
+        if (d[f] != null) el[f].value = d[f];
+      });
+      return d;
+    } catch (e) { return null; }
+  }
+
+  // Eventi
+  form.addEventListener("submit", (e) => e.preventDefault());
+  form.addEventListener("change", (e) => {
+    const id = e.target.id, name = e.target.name;
+    if (id === "model") refreshTrainControls();
+    else if (["units", "ncars", "loco", "carLen", "locoLen"].includes(id)) refreshTrainControls(el.car.value);
+    if (name === "stype") stationDefaults();
+    render();
+  });
+  form.addEventListener("input", (e) => {
+    if (["plen", "offset", "exits", "carLen", "locoLen"].includes(e.target.id)) render();
+  });
+
+  // Avvio: esempio Frecciarossa 1000, carrozza 5, arrivo a un capolinea
+  const saved = load();
+  if (!saved) el.model.value = "fr1000";
+  refreshTrainControls(saved && saved.car);
+  if (saved && saved.units) { el.units.value = saved.units; refreshTrainControls(saved.car); }
+  if (!saved) el.car.value = "5";
+  render();
+})();
+</script>
+</html>
