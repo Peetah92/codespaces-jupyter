@@ -118,6 +118,8 @@
     outline: 3px solid var(--caution); outline-offset: 1px;
   }
   .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .zh, .manual { display: grid; gap: 12px; }
+  .facts dd .sub { display: block; font: 400 13px/1.35 var(--body); color: var(--muted); }
 
   .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
   .seg label { flex: 1; display: block; position: relative; font-weight: 500; }
@@ -220,6 +222,24 @@
 
       <fieldset class="sep">
         <legend>Stazione di arrivo</legend>
+        <label for="station">Stazione
+          <select id="station">
+            <option value="zh">Zürich HB</option>
+            <option value="manual">Altra stazione (inserisci a mano)</option>
+          </select>
+        </label>
+        <div id="zhBox" class="zh">
+          <div class="row2">
+            <label for="track">Binario
+              <select id="track"></select>
+            </label>
+            <label for="from" id="fromWrap">Il treno arriva da
+              <select id="from"></select>
+            </label>
+          </div>
+          <span class="hint" id="zhInfo"></span>
+        </div>
+        <div id="manualBox" class="manual">
         <div class="seg" role="radiogroup" aria-label="Tipo di stazione">
           <label><input type="radio" name="stype" value="term" checked><span>Capolinea</span></label>
           <label><input type="radio" name="stype" value="through"><span>Passante</span></label>
@@ -243,9 +263,10 @@
           <input type="text" id="exits" inputmode="decimal" value="0" placeholder="es. 0, 180">
           <span class="hint">Separa più valori con una virgola. La testata è l'estremità del marciapiede verso cui viaggia il treno.</span>
         </label>
+        </div>
       </fieldset>
 
-      <fieldset class="sep">
+      <fieldset class="sep" id="secBox">
         <legend>Settori</legend>
         <div class="row2">
           <label for="nsec">Numero di settori
@@ -279,6 +300,7 @@
 
   <div class="note">
     <p><strong>Quanto è affidabile.</strong> Le lunghezze dei treni sono valori indicativi per tipo di convoglio (arrotondati al metro). La posizione reale dipende dal punto in cui il macchinista ferma il treno: nelle stazioni di testa la testa arriva quasi ai respingenti, nelle passanti ferma di solito al segnale di arresto a fine marciapiede, mentre i treni corti possono fermarsi a metà. I settori reali non hanno tutti la stessa lunghezza: se li conosci, inseriscili per una stima più precisa.</p>
+    <p><strong>Zürich HB.</strong> Lunghezze dei marciapiedi, respingenti, scale, ascensori e settori dell'atrio vengono da OpenStreetMap (settembre 2026) e sono precisi entro qualche metro. Per i binari sotterranei 31–34 e 41–44 i settori non sono mappati, quindi sono stimati.</p>
     <p>In doppia o tripla composizione conta tutte le carrozze di seguito, attraverso le unità. Le impostazioni restano salvate su questo dispositivo.</p>
   </div>
 </main>
@@ -319,7 +341,8 @@
     customWrap: $("customWrap"), carLen: $("carLen"), locoLen: $("locoLen"),
     loco: $("loco"), locoWrap: $("locoWrap"), car: $("car"),
     plen: $("plen"), stop: $("stop"), offset: $("offset"), offsetWrap: $("offsetWrap"),
-    exits: $("exits"), nsec: $("nsec"), secA: $("secA"), secLens: $("secLens"), stypeHint: $("stypeHint"), results: $("results"), plate: $("plate")
+    exits: $("exits"), station: $("station"), track: $("track"), from: $("from"), fromWrap: $("fromWrap"),
+    zhBox: $("zhBox"), zhInfo: $("zhInfo"), manualBox: $("manualBox"), secBox: $("secBox"), nsec: $("nsec"), secA: $("secA"), secLens: $("secLens"), stypeHint: $("stypeHint"), results: $("results"), plate: $("plate")
   };
 
   // Popola i treni per gruppo
@@ -403,6 +426,87 @@
     else el.car.value = String(Math.min(cars.length, 3));
   }
 
+  // Zürich HB, da OpenStreetMap (settembre 2026). Distanze in metri lungo il marciapiede.
+  // Atrio: misurate dall'estremità dei respingenti. Sotterranei: dall'estremità est.
+  const HALLE_EXITS = [
+    [0, "Atrio / Querhalle (uscita principale)"],
+    [50, "Scale verso ShopVille"],
+    [82, "Scale mobili verso ShopVille"],
+    [206, "Scale verso il sottopassaggio centrale"],
+    [230, "Ascensore e scale mobili del sottopassaggio centrale"],
+    [254, "Scale verso il sottopassaggio centrale"]
+  ];
+  const ZH = [
+    { id: "halle", label: "Atrio (binari 3–18, stazione di testa)", type: "term", offset: 8, secLens: [92, 108, 90],
+      tracks: { 3: 420, 4: 426, 5: 426, 6: 426, 7: 426, 8: 427, 9: 427, 10: 424, 11: 424, 12: 430, 13: 430, 14: 427, 15: 427, 16: 417, 17: 417, 18: 430 },
+      exits: HALLE_EXITS,
+      exitsByTrack: {
+        3: [[0, "Atrio / Querhalle (uscita principale)"], [72, "Scale mobili verso ShopVille"], [86, "Scale verso il livello -1"], [254, "Scale verso il sottopassaggio centrale"]],
+        18: [[0, "Atrio / Querhalle (uscita principale)"], [49, "Scale mobili verso ShopVille"], [82, "Scale verso ShopVille"], [227, "Scale verso il sottopassaggio centrale"]]
+      } },
+    { id: "loewen", label: "Löwenstrasse (binari 31–34, sotterranea)", type: "through", offset: 10, length: 420, tracks: { 31: 420, 32: 420, 33: 420, 34: 420 },
+      from: [["west", "Ovest (Altstetten, Berna, Basilea)"], ["east", "Est (Oerlikon, Winterthur, aeroporto)"]],
+      exits: [[10, "Ascensore lato est"], [30, "Scale e scale mobili lato est"], [82, "Scale mobili verso l'atrio"], [106, "Scale mobili verso l'atrio"],
+              [225, "Scale mobili verso il sottopassaggio centrale"], [250, "Ascensore del sottopassaggio centrale"], [261, "Scale mobili verso il sottopassaggio centrale"], [300, "Scale mobili lato ovest"]] },
+    { id: "museum", label: "Museumstrasse (binari 41–44, S-Bahn sotterranea)", type: "through", offset: 10, tracks: { 41: 370, 42: 370, 43: 370, 44: 370 },
+      from: [["west", "Ovest (Hardbrücke, Wipkingen)"], ["east", "Est (Stadelhofen)"]],
+      exits: [[42, "Scale mobili"], [79, "Ascensore"], [124, "Scale mobili"], [164, "Scale mobili"], [198, "Scale e scale mobili"], [307, "Scale mobili"], [349, "Ascensore"]] }
+  ];
+  let exitNames = {};
+
+  function fillTracks() {
+    ZH.forEach((g) => {
+      const og = document.createElement("optgroup");
+      og.label = g.label;
+      Object.keys(g.tracks).forEach((t) => {
+        const o = document.createElement("option");
+        o.value = t; o.textContent = "Binario " + t;
+        og.appendChild(o);
+      });
+      el.track.appendChild(og);
+    });
+  }
+  const zhGroup = () => ZH.find((g) => el.track.value in g.tracks) || ZH[0];
+
+  function applyStation() {
+    const zh = el.station.value === "zh";
+    el.zhBox.hidden = !zh;
+    el.manualBox.hidden = zh;
+    el.secBox.hidden = zh;
+    exitNames = {};
+    if (!zh) return;
+    const g = zhGroup();
+    const t = el.track.value;
+    const L = g.tracks[t];
+    // Provenienza (solo sotterranee)
+    el.fromWrap.hidden = !g.from;
+    if (g.from) {
+      const prev = el.from.value;
+      el.from.innerHTML = g.from.map(([v, lab]) => `<option value="${v}">${lab}</option>`).join("");
+      if (g.from.some(([v]) => v === prev)) el.from.value = prev;
+    }
+    // Dati misurati dall'estremità est: se il treno viaggia verso ovest, la testata è l'estremità ovest
+    const flip = g.from && el.from.value === "east";
+    const exits = ((g.exitsByTrack && g.exitsByTrack[t]) || g.exits).map(([m, n]) => [flip ? L - m : m, n]);
+    form.querySelector(`input[name="stype"][value="${g.type}"]`).checked = true;
+    el.plen.value = L;
+    el.stop.value = "end";
+    el.offset.value = g.offset;
+    el.exits.value = exits.map(([m]) => m).join(", ");
+    exits.forEach(([m, n]) => (exitNames[m] = n));
+    el.nsec.value = "4";
+    if (g.secLens) {
+      el.secA.value = "head";
+      el.secLens.value = [...g.secLens, L - g.secLens.reduce((a, b) => a + b, 0)].join(", ");
+    } else {
+      el.secA.value = "unknown";
+      el.secLens.value = "";
+    }
+    el.zhInfo.textContent = g.type === "term"
+      ? `Marciapiede di circa ${L} m. La testa del treno si ferma ai respingenti, lato atrio. Settori A–D a partire dall'atrio (A ≈ 0–92 m, B ≈ 92–200 m, C ≈ 200–290 m, D oltre).`
+      : `Marciapiede di circa ${L} m, stazione passante. I settori qui non sono mappati: li divido in 4 parti uguali e mostro entrambi i versi possibili.`;
+  }
+
   function stationDefaults() {
     const t = radio("stype");
     const L = num(el.plen.value, 400);
@@ -467,7 +571,7 @@
   }
 
   function svgDiagram(res, carNum, L, exits, isTerm, secs) {
-    const W = 1000, H = 170, padL = 24, padR = 40;
+    const W = 1000, H = 190, padL = 24, padR = 40;
     const extent = Math.max(L, res.end) + 5;
     const k = (W - padL - padR) / extent;
     const x = (pos) => W - padR - pos * k;
@@ -507,17 +611,17 @@
     exits.forEach((e) => {
       if (e < 0 || e > extent) return;
       const ex = x(e);
-      ns.push(`<rect x="${ex - 9}" y="84" width="18" height="18" rx="3" fill="var(--signal)"/>`);
-      ns.push(`<text x="${ex}" y="97.5" text-anchor="middle" style="fill:var(--signal-ink);font:700 12px var(--body)">U</text>`);
+      ns.push(`<rect x="${ex - 9}" y="112" width="18" height="18" rx="3" fill="var(--signal)"/>`);
+      ns.push(`<text x="${ex}" y="125.5" text-anchor="middle" style="fill:var(--signal-ink);font:700 12px var(--body)">U</text>`);
     });
     // scala
     const step = extent > 500 ? 100 : 50;
     for (let m = 0; m <= L; m += step) {
-      ns.push(`<line x1="${x(m)}" x2="${x(m)}" y1="110" y2="116" stroke="var(--muted)" stroke-width="1"/>`);
-      ns.push(`<text x="${x(m)}" y="132" text-anchor="middle" class="tm">${m}</text>`);
+      ns.push(`<line x1="${x(m)}" x2="${x(m)}" y1="134" y2="140" stroke="var(--muted)" stroke-width="1"/>`);
+      ns.push(`<text x="${x(m)}" y="156" text-anchor="middle" class="tm">${m}</text>`);
     }
-    ns.push(`<text x="${x(0)}" y="152" text-anchor="end" class="tm">testata · m</text>`);
-    ns.push(`<text x="${x(L)}" y="152" text-anchor="start" class="tm">fondo</text>`);
+    ns.push(`<text x="${x(0)}" y="176" text-anchor="end" class="tm">testata · m</text>`);
+    ns.push(`<text x="${x(L)}" y="176" text-anchor="start" class="tm">fondo</text>`);
     ns.push(`<text x="${W - 4}" y="56" text-anchor="end" class="t">▶</text>`);
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Schema del marciapiede con il treno e la tua carrozza evidenziata">${ns.join("")}</svg>`;
   }
@@ -532,7 +636,7 @@
     if (exits.length) {
       const near = exits.reduce((b, e) => (Math.abs(e - me.c) < Math.abs(b - me.c) ? e : b), exits[0]);
       walk = Math.max(0, Math.abs(near - me.c) - me.len / 2);
-      exitInfo = fmtM(walk) + " m · " + fmtTime(walk / WALK);
+      exitInfo = fmtM(walk) + " m · " + fmtTime(walk / WALK) + (exitNames[near] ? `<span class="sub">${exitNames[near]}</span>` : "");
       const cars = res.placed.filter((v) => v.kind === "car");
       bestCar = cars.reduce((b, v) => {
         const dv = Math.min(...exits.map((e) => Math.abs(e - v.c)));
@@ -570,6 +674,7 @@
   }
 
   function render() {
+    applyStation();
     updateHints();
     const m = model();
     const vehicles = buildVehicles(m);
@@ -596,7 +701,7 @@
 
   // Memoria locale
   const KEY = "dove-scendo-ch-v1";
-  const FIELDS = ["model", "units", "ncars", "carLen", "locoLen", "loco", "car", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens"];
+  const FIELDS = ["model", "units", "ncars", "carLen", "locoLen", "loco", "car", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens", "station", "track", "from"];
   function save() {
     try {
       const d = { orient: radio("orient"), stype: radio("stype") };
@@ -612,7 +717,7 @@
         const r = form.querySelector(`input[name="${n}"][value="${d[n]}"]`);
         if (r) r.checked = true;
       });
-      ["model", "ncars", "carLen", "locoLen", "loco", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens"].forEach((f) => {
+      ["model", "ncars", "carLen", "locoLen", "loco", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens", "station", "track"].forEach((f) => {
         if (d[f] != null) el[f].value = d[f];
       });
       return d;
@@ -626,14 +731,18 @@
     if (id === "model") refreshTrainControls();
     else if (["units", "ncars", "loco", "carLen", "locoLen"].includes(id)) refreshTrainControls(el.car.value);
     if (name === "stype") stationDefaults();
+    if (id === "station" && el.station.value === "manual") { el.exits.value = "0"; el.secLens.value = ""; }
     render();
   });
   form.addEventListener("input", (e) => {
     if (["plen", "offset", "exits", "carLen", "locoLen", "secLens"].includes(e.target.id)) render();
   });
 
-  // Avvio: esempio Giruno, 3ª carrozza, arrivo in una stazione di testa
+  // Avvio: esempio Giruno, 3ª carrozza, arrivo a Zürich HB binario 7
+  fillTracks();
+  el.track.value = "7";
   const saved = load();
+  if (saved && saved.from) { applyStation(); el.from.value = saved.from; }
   if (!saved) el.model.value = "giruno";
   refreshTrainControls(saved && saved.car);
   if (saved && saved.units) { el.units.value = saved.units; refreshTrainControls(saved.car); }
