@@ -1,7 +1,9 @@
 # Dove scendo su CasaOS
 # 1. Copia index.html in /DATA/AppData/dove-scendo/html/ (app "Files" di CasaOS).
 # 2. CasaOS → "+" → "Install a customized app" → "Import" → incolla questo file.
-# 3. Apri http://<ip-del-server>:8095
+# 3. Dal telefono con Tailscale attivo apri http://<nome-del-server>:38471
+#    (nome MagicDNS del server, oppure il suo indirizzo Tailscale 100.x.y.z).
+# Porta 38471: fuori dalle porte note e da quelle usate di solito dalle app CasaOS.
 name: dove-scendo
 services:
   dove-scendo:
@@ -10,7 +12,7 @@ services:
     restart: unless-stopped
     ports:
       - target: 80
-        published: "8095"
+        published: "38471"
         protocol: tcp
     volumes:
       - type: bind
@@ -43,5 +45,5 @@ x-casaos:
   title:
     en_us: Dove scendo
   index: /
-  port_map: "8095"
+  port_map: "38471"
   scheme: http
