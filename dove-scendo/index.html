@@ -152,6 +152,7 @@
   svg .t { fill: var(--ink); font: 500 13px var(--body); }
   svg .tm { fill: var(--muted); font: 500 12px var(--mono); }
   svg .tc { fill: var(--car-ink); font: 600 13px var(--mono); }
+  svg .tsv { fill: var(--signal); font: 700 12px var(--body); }
   svg .tsel { fill: var(--caution-ink); font: 700 14px var(--mono); }
 
   .doors h3 { margin: 0 0 6px; font: 600 13px/1.3 var(--body); }
@@ -161,6 +162,14 @@
   .doors li.best { border-color: var(--caution); box-shadow: inset 0 0 0 1px var(--caution); }
   .doors .dm { font: 500 14px var(--mono); font-variant-numeric: tabular-nums; }
   .doors .dz { color: var(--muted); }
+  .svc h3 { margin: 0 0 6px; font: 600 13px/1.3 var(--body); }
+  .tablewrap { overflow-x: auto; }
+  .svc table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .svc th { text-align: left; font: 600 11px/1.2 var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .svc td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .svc td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .svc td.muted { color: var(--muted); }
+  .svc .mk { display: inline-grid; place-items: center; min-width: 20px; height: 20px; border-radius: 4px; background: var(--signal); color: var(--signal-ink); font: 700 12px var(--body); margin-right: 4px; }
   .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
   .note { font-size: 13px; color: var(--muted); max-width: 70ch; }
   .note p { margin: 0 0 8px; }
@@ -223,6 +232,28 @@
         <label for="car">La tua carrozza
           <select id="car"></select>
           <span class="hint">Il numero scritto sulla carrozza e nell'app FFS ("Composizione del treno"). In doppia composizione la seconda unità è numerata da 21 in poi, in tripla la terza da 41.</span>
+        </label>
+      </fieldset>
+
+      <fieldset class="sep">
+        <legend>Carrozze speciali</legend>
+        <span class="hint">Copia i numeri dalle icone in "Composizione del treno" nell'app FFS. Più numeri separati da virgola. Vengono ricordati per questo tipo di treno.</span>
+        <div class="row2">
+          <label for="sp_resto">Ristorante / bistro
+            <input type="text" id="sp_resto" inputmode="numeric" placeholder="es. 5">
+          </label>
+          <label for="sp_family">Zona famiglia / bambini
+            <input type="text" id="sp_family" inputmode="numeric" placeholder="es. 8">
+          </label>
+          <label for="sp_wheel">Sedie a rotelle
+            <input type="text" id="sp_wheel" inputmode="numeric" placeholder="es. 4">
+          </label>
+          <label for="sp_bike">Biciclette
+            <input type="text" id="sp_bike" inputmode="numeric" placeholder="es. 11">
+          </label>
+        </div>
+        <label for="sp_first">1ª classe
+          <input type="text" id="sp_first" inputmode="numeric" placeholder="es. 1, 2, 21, 22">
         </label>
       </fieldset>
 
@@ -357,7 +388,32 @@
   };
   const DOOR_LABELS = { ends: "alle due estremità", quarters: "due, verso il centro", center: "una al centro", oneEnd: "una sola, a un'estremità" };
   const doorPattern = (m) => (el.doors.value !== "auto" ? el.doors.value : m.doors || "ends");
-  const WALK = 1.2; // m/s con bagaglio
+  const WALK = 1.2;
+  const SERVICES = [
+    { id: "resto", label: "Ristorante / bistro", mark: "R" },
+    { id: "family", label: "Zona famiglia", mark: "F" },
+    { id: "wheel", label: "Sedie a rotelle", mark: "♿" },
+    { id: "bike", label: "Biciclette", mark: "B" },
+    { id: "first", label: "1ª classe", mark: "1" }
+  ];
+  let specials = {}; // { idModello: { resto: "5", ... } }
+  const spInput = (id) => document.getElementById("sp_" + id);
+  const parseNums = (t) => String(t || "").split(/[;,\s]+/).map((x) => parseInt(x, 10)).filter((n) => isFinite(n));
+  function fillSpecials() {
+    const cur = specials[el.model.value] || {};
+    SERVICES.forEach((sv) => (spInput(sv.id).value = cur[sv.id] || ""));
+  }
+  function readSpecials() {
+    const cur = {};
+    SERVICES.forEach((sv) => { if (spInput(sv.id).value.trim()) cur[sv.id] = spInput(sv.id).value.trim(); });
+    specials[el.model.value] = cur;
+  }
+  // carrozza -> elenco di simboli dei servizi
+  function serviceMarks() {
+    const marks = {};
+    SERVICES.forEach((sv) => parseNums(spInput(sv.id).value).forEach((n) => (marks[n] = (marks[n] || []).concat(sv.mark))));
+    return marks;
+  } // m/s con bagaglio
 
   const $ = (id) => document.getElementById(id);
   const form = $("f");
@@ -639,6 +695,12 @@
         ns.push(`<text x="${x1 + w / 2}" y="54" text-anchor="middle" class="${sel ? "tsel" : "tc"}">${v.num}</text>`);
       }
     });
+    // simboli dei servizi sopra le carrozze
+    const marks = serviceMarks();
+    res.placed.forEach((v) => {
+      if (v.kind !== "car" || !marks[v.num] || v.num === carNum) return;
+      ns.push(`<text x="${x(v.c)}" y="28" text-anchor="middle" class="tsv">${marks[v.num].join(" ")}</text>`);
+    });
     // indicatore della tua carrozza
     const me = res.placed.find((v) => v.kind === "car" && v.num === carNum);
     if (me) {
@@ -663,6 +725,28 @@
     ns.push(`<text x="${x(L)}" y="176" text-anchor="start" class="tm">fondo</text>`);
     ns.push(`<text x="${W - 4}" y="56" text-anchor="end" class="t">▶</text>`);
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Schema del marciapiede con il treno e la tua carrozza evidenziata">${ns.join("")}</svg>`;
+  }
+
+  function servicesHTML(res, secs, exits) {
+    const rows = [];
+    SERVICES.forEach((sv) => {
+      parseNums(spInput(sv.id).value).forEach((n) => {
+        const car = res.placed.find((v) => v.kind === "car" && v.num === n);
+        if (!car) {
+          rows.push(`<tr><td>${sv.label}</td><td class="n">${n}</td><td colspan="2" class="muted">Non c'è in questa composizione</td></tr>`);
+          return;
+        }
+        const ds = (car.doorsAbs.length ? car.doorsAbs : [car.c]).map((d) => {
+          const z = sectorAt(d, secs);
+          return `${fmtM(d)} m${z ? " (" + z + ")" : ""}`;
+        }).join(", ");
+        rows.push(`<tr><td><span class="mk">${sv.mark}</span> ${sv.label}</td><td class="n">${n}</td><td>${sectorsFor(car, secs) || "—"}</td><td class="n">${ds}</td></tr>`);
+      });
+    });
+    if (!rows.length) return "";
+    return `<div class="svc"><h3>Carrozze speciali</h3><div class="tablewrap"><table>
+      <thead><tr><th>Servizio</th><th>Carrozza</th><th>Settore</th><th>Porte (m dalla testata)</th></tr></thead>
+      <tbody>${rows.join("")}</tbody></table></div></div>`;
   }
 
   function scenarioHTML(title, orient, vehicles, carNum, L, exits, isTerm) {
@@ -723,6 +807,7 @@
           <h3>Porte della carrozza ${carNum} <span>(${DOOR_LABELS[pat]}${pat === "oneEnd" ? ", lato stimato" : ""})</span></h3>
           <ul>${doorList}</ul>
         </div>
+        ${servicesHTML(res, secs, exits)}
         ${warns.map((w) => `<div class="warn">${w}</div>`).join("")}
         <div class="diagram">${svgDiagram(res, carNum, L, exits, isTerm, secs)}</div>
       </article>`;
@@ -761,6 +846,7 @@
     try {
       const d = { orient: radio("orient"), stype: radio("stype") };
       FIELDS.forEach((f) => (d[f] = el[f].value));
+      d.specials = specials;
       localStorage.setItem(KEY, JSON.stringify(d));
     } catch (e) {}
   }
@@ -775,6 +861,7 @@
       ["model", "ncars", "carLen", "locoLen", "loco", "plen", "stop", "offset", "exits", "nsec", "secA", "secLens", "station", "track", "doors"].forEach((f) => {
         if (d[f] != null) el[f].value = d[f];
       });
+      if (d.specials && typeof d.specials === "object") specials = d.specials;
       return d;
     } catch (e) { return null; }
   }
@@ -783,13 +870,14 @@
   form.addEventListener("submit", (e) => e.preventDefault());
   form.addEventListener("change", (e) => {
     const id = e.target.id, name = e.target.name;
-    if (id === "model") { el.doors.value = "auto"; refreshTrainControls(); }
+    if (id === "model") { el.doors.value = "auto"; fillSpecials(); refreshTrainControls(); }
     else if (["units", "ncars", "loco", "carLen", "locoLen", "doors"].includes(id)) refreshTrainControls(el.car.value);
     if (name === "stype") stationDefaults();
     if (id === "station" && el.station.value === "manual") { el.exits.value = "0"; el.secLens.value = ""; }
     render();
   });
   form.addEventListener("input", (e) => {
+    if (e.target.id.startsWith("sp_")) { readSpecials(); render(); return; }
     if (["plen", "offset", "exits", "carLen", "locoLen", "secLens"].includes(e.target.id)) render();
   });
 
@@ -798,6 +886,7 @@
   el.track.value = "7";
   const saved = load();
   if (saved && saved.from) { applyStation(); el.from.value = saved.from; }
+  fillSpecials();
   if (!saved) el.model.value = "giruno";
   refreshTrainControls(saved && saved.car);
   if (saved && saved.units) { el.units.value = saved.units; refreshTrainControls(saved.car); }
