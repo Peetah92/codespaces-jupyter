@@ -1,0 +1,47 @@
+# Dove scendo su CasaOS
+# 1. Copia index.html in /DATA/AppData/dove-scendo/html/ (app "Files" di CasaOS).
+# 2. CasaOS → "+" → "Install a customized app" → "Import" → incolla questo file.
+# 3. Apri http://<ip-del-server>:8095
+name: dove-scendo
+services:
+  dove-scendo:
+    image: nginx:1.27-alpine
+    container_name: dove-scendo
+    restart: unless-stopped
+    ports:
+      - target: 80
+        published: "8095"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/dove-scendo/html
+        target: /usr/share/nginx/html
+        read_only: true
+    x-casaos:
+      ports:
+        - container: "80"
+          description:
+            en_us: Pagina web
+      volumes:
+        - container: /usr/share/nginx/html
+          description:
+            en_us: Cartella con index.html
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+    - arm
+  main: dove-scendo
+  author: Peetah92
+  developer: Peetah92
+  category: Utilities
+  tagline:
+    en_us: In quale settore del marciapiede scendi
+  description:
+    en_us: Mostra in quale settore del marciapiede si ferma la tua carrozza, con i dati di composizione del Train Formation Service o con una stima.
+  title:
+    en_us: Dove scendo
+  index: /
+  port_map: "8095"
+  scheme: http
