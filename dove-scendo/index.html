@@ -170,6 +170,27 @@
   .svc td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .svc td.muted { color: var(--muted); }
   .svc .mk { display: inline-grid; place-items: center; min-width: 20px; height: 20px; border-radius: 4px; background: var(--signal); color: var(--signal-ink); font: 700 12px var(--body); margin-right: 4px; }
+  .col { display: grid; gap: 20px; align-content: start; min-width: 0; }
+  .btn {
+    font: 600 15px/1 var(--body); color: var(--signal-ink); background: var(--signal);
+    border: 0; border-radius: 8px; padding: 12px 14px; cursor: pointer;
+  }
+  .btn:disabled { opacity: .6; cursor: progress; }
+  .strip { overflow-x: auto; padding-bottom: 4px; }
+  .strip ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; min-width: max-content; }
+  .strip li { display: grid; gap: 3px; justify-items: center; }
+  .strip .sec { font: 700 16px/1 var(--display); color: var(--muted); min-height: 16px; }
+  .strip .veh {
+    min-width: 42px; padding: 6px 4px; border-radius: 6px; background: var(--car); color: var(--car-ink);
+    display: grid; gap: 2px; justify-items: center; font: 600 13px/1.1 var(--mono);
+  }
+  .strip .veh.loco { background: var(--loco); color: var(--signal-ink); }
+  .strip .veh.first { box-shadow: inset 0 -3px 0 var(--caution); }
+  .strip .veh.me { background: var(--caution); color: var(--caution-ink); }
+  .strip .veh.closed { opacity: .45; }
+  .strip .veh small { font: 700 10px/1 var(--body); letter-spacing: .02em; }
+  .strip .gap { width: 10px; }
+  .legend-line { font-size: 12px; color: var(--muted); }
   .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
   .note { font-size: 13px; color: var(--muted); max-width: 70ch; }
   .note p { margin: 0 0 8px; }
@@ -191,6 +212,51 @@
 
 <main class="wrap" style="padding-top:20px">
   <div class="layout">
+    <div class="col">
+    <form class="panel" id="lf" autocomplete="off">
+      <fieldset>
+        <legend>Treno reale (dati FFS)</legend>
+        <span class="hint">Scarica la composizione reale del treno dall'API ufficiale di opentransportdata.swiss: settore di ogni carrozza a ogni fermata e servizi a bordo.</span>
+        <div class="row2">
+          <label for="lvTrain">Numero treno
+            <input type="text" id="lvTrain" inputmode="numeric" placeholder="es. 709">
+          </label>
+          <label for="lvDate">Data
+            <input type="date" id="lvDate">
+          </label>
+        </div>
+        <div class="row2">
+          <label for="lvEvu">Compagnia
+            <select id="lvEvu">
+              <option value="SBBP">FFS</option>
+              <option value="BLSP">BLS</option>
+              <option value="SOB">SOB</option>
+              <option value="THURBO">Thurbo</option>
+              <option value="TPF">TPF</option>
+              <option value="TRN">TRN</option>
+              <option value="ZB">Zentralbahn</option>
+              <option value="RhB">RhB</option>
+              <option value="MBC">MBC</option>
+              <option value="OeBB">OeBB</option>
+              <option value="VDBB">VDBB</option>
+            </select>
+          </label>
+          <label for="lvToken">Token API
+            <input type="password" id="lvToken" autocomplete="off" placeholder="incolla il token">
+          </label>
+        </div>
+        <button type="submit" class="btn" id="lvGo">Carica composizione</button>
+        <span class="hint" id="lvStatus" role="status"></span>
+        <div id="lvPick" class="zh" hidden>
+          <label for="lvStop">Fermata di arrivo
+            <select id="lvStop"></select>
+          </label>
+          <label for="lvCar">La tua carrozza
+            <select id="lvCar"></select>
+          </label>
+        </div>
+      </fieldset>
+    </form>
     <form class="panel" id="f" autocomplete="off">
       <fieldset>
         <legend>Il tuo treno</legend>
@@ -341,8 +407,11 @@
         </label>
       </fieldset>
     </form>
-
-    <section class="results" id="results" aria-live="polite"></section>
+    </div>
+    <div class="col">
+      <section class="panel scenario" id="live" hidden aria-live="polite"></section>
+      <section class="results" id="results" aria-live="polite"></section>
+    </div>
   </div>
 
   <div class="note">
@@ -880,6 +949,183 @@
     if (e.target.id.startsWith("sp_")) { readSpecials(); render(); return; }
     if (["plen", "offset", "exits", "carLen", "locoLen", "secLens"].includes(e.target.id)) render();
   });
+
+  // ---------- Treno reale: API Train Formation Service (opentransportdata.swiss) ----------
+  const LV = {
+    form: $("lf"), train: $("lvTrain"), date: $("lvDate"), evu: $("lvEvu"), token: $("lvToken"),
+    go: $("lvGo"), status: $("lvStatus"), pick: $("lvPick"), stop: $("lvStop"), car: $("lvCar"), out: $("live")
+  };
+  const LV_KEY = "dove-scendo-live-v1";
+  let lvData = null;
+  const TYPE_LABEL = { "1": "1ª", "2": "2ª", "12": "1ª/2ª", CC: "Cuccette", FA: "Famiglia", WL: "Letti", WR: "Ristorante", W1: "Rist. 1ª", W2: "Rist. 2ª", LK: "Loco", D: "Bagagli", K: "Senza classe" };
+  const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const hhmm = (t) => (t ? t.slice(11, 16) : "");
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // Legge la stringa di formazione, es. "@A,[(1:1#VH;BZ;NF,1:2#VH;KW;NF@B,1:3#NF,...)]"
+  // @X = da qui inizia il settore X; [ ] = veicoli del treno; ( ) = nessun passaggio verso il veicolo vicino.
+  function parseFormation(str) {
+    const out = [];
+    let sector = "", inTrain = false;
+    const re = /@([A-Z]+)|(\[)|(\])|([^,@\[\]]+)/g;
+    let m;
+    while ((m = re.exec(str))) {
+      if (m[1]) { sector = m[1]; continue; }
+      if (m[2]) { inTrain = true; out.push({ gap: true }); continue; }
+      if (m[3]) { inTrain = false; out.push({ gap: true }); continue; }
+      let tok = m[4].trim();
+      const unitStart = tok.includes("("), unitEnd = tok.includes(")");
+      tok = tok.replace(/[()]/g, "");
+      if (!tok) continue;
+      const p = tok.match(/^([-%>=]*)([A-Z0-9]*)(?::(\d+))?(?:#(.*))?$/);
+      if (!p) continue;
+      const flags = p[1], type = p[2], num = p[3] ? parseInt(p[3], 10) : null;
+      const svc = p[4] ? p[4].split(";").filter(Boolean) : [];
+      if (type === "F" || type === "X") continue; // posizioni fittizie o veicoli fermi
+      out.push({ sector, type, num, svc, inTrain, closed: flags.includes("-"), notServed: flags.includes("%"), groups: flags.includes("=") || flags.includes(">"), unitStart, unitEnd });
+    }
+    // togli separatori doppi o ai bordi
+    return out.filter((v, i, a) => !v.gap || (i > 0 && i < a.length - 1 && !a[i - 1].gap));
+  }
+
+  function vehicleServices(v) {
+    const list = [];
+    if (/^W/.test(v.type)) list.push(v.notServed ? "Ristorante (chiuso)" : "Ristorante");
+    if (v.type === "FA" || v.svc.includes("FZ")) list.push("Zona famiglia");
+    if (v.svc.includes("BHP")) list.push("Sedie a rotelle");
+    if (v.svc.includes("VH") || v.svc.includes("VR")) list.push(v.svc.includes("VR") ? "Bici (prenotazione)" : "Bici");
+    if (v.svc.includes("KW")) list.push("Passeggini");
+    if (v.svc.includes("BZ")) list.push("Business");
+    if (v.svc.includes("NF")) list.push("Piano ribassato");
+    return list;
+  }
+  const isFirst = (v) => v.type === "1" || v.type === "12" || v.type === "W1";
+
+  function lvSave() {
+    try { localStorage.setItem(LV_KEY, JSON.stringify({ token: LV.token.value, evu: LV.evu.value, train: LV.train.value, car: LV.car.value, stopName: LV.stop.selectedOptions[0] ? LV.stop.selectedOptions[0].dataset.name : "" })); } catch (e) {}
+  }
+  function lvLoad() {
+    try { return JSON.parse(localStorage.getItem(LV_KEY) || "null") || {}; } catch (e) { return {}; }
+  }
+
+  async function lvFetch(e) {
+    e.preventDefault();
+    const train = LV.train.value.replace(/\D/g, "");
+    const token = LV.token.value.trim();
+    if (!train || !token) { LV.status.textContent = "Inserisci numero del treno e token."; return; }
+    LV.go.disabled = true;
+    LV.status.textContent = "Carico la composizione…";
+    lvSave();
+    const url = "https://api.opentransportdata.swiss/formation/v1/formations_stop_based?" +
+      new URLSearchParams({ evu: LV.evu.value, operationDate: LV.date.value || todayISO(), trainNumber: train });
+    try {
+      const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+      const body = await r.json().catch(() => ({}));
+      if (r.status === 401 || r.status === 403) throw new Error("Il token non è valido o non ha accesso al servizio di composizione.");
+      if (!r.ok) throw new Error(body.error === "No realtime formation data found." ? "Nessuna composizione per questo treno in questa data. Controlla numero, compagnia e data." : "Errore dal servizio (" + r.status + ").");
+      const stops = (body.formationsAtScheduledStops || []).filter((x) => x.formationShort && x.formationShort.formationShortString);
+      if (!stops.length) throw new Error("Il servizio non ha restituito fermate con composizione.");
+      lvData = { train, stops, updated: body.lastUpdate };
+      fillLiveStops();
+      LV.status.textContent = `Dati FFS aggiornati alle ${hhmm(body.lastUpdate) || "?"}.`;
+    } catch (err) {
+      lvData = null;
+      LV.pick.hidden = true; LV.out.hidden = true;
+      LV.status.textContent = err instanceof TypeError
+        ? "La pagina non riesce a raggiungere l'API. Nella versione pubblicata su claude.ai le richieste esterne sono bloccate: usa questo file aperto nel browser o da GitHub Pages."
+        : err.message;
+    } finally {
+      LV.go.disabled = false;
+    }
+  }
+
+  function fillLiveStops() {
+    const saved = lvLoad();
+    LV.stop.innerHTML = lvData.stops.map((x, i) => {
+      const st = x.scheduledStop, t = hhmm(st.stopTime.arrivalTime) || hhmm(st.stopTime.departureTime);
+      return `<option value="${i}" data-name="${esc(st.stopPoint.name)}">${esc(st.stopPoint.name)}${t ? " · " + t : ""}${st.track ? " · bin. " + esc(st.track) : ""}</option>`;
+    }).join("");
+    // fermata preferita: quella salvata, poi Zürich HB, poi il capolinea
+    const names = lvData.stops.map((x) => x.scheduledStop.stopPoint.name);
+    let idx = names.indexOf(saved.stopName);
+    if (idx < 0) idx = names.findIndex((n) => /^Zürich HB/.test(n));
+    if (idx < 0) idx = names.length - 1;
+    LV.stop.value = String(idx);
+    const cars = [...new Set(lvData.stops.flatMap((x) => parseFormation(x.formationShort.formationShortString).filter((v) => v.num != null).map((v) => v.num)))].sort((a, b) => a - b);
+    LV.car.innerHTML = cars.map((n) => `<option value="${n}">Carrozza ${n}</option>`).join("");
+    if (cars.includes(parseInt(saved.car, 10))) LV.car.value = saved.car;
+    else if (el.car.value && cars.includes(parseInt(el.car.value, 10))) LV.car.value = el.car.value;
+    LV.pick.hidden = false;
+    renderLive();
+  }
+
+  function renderLive() {
+    if (!lvData) { LV.out.hidden = true; return; }
+    const x = lvData.stops[parseInt(LV.stop.value, 10)] || lvData.stops[lvData.stops.length - 1];
+    const st = x.scheduledStop;
+    const veh = parseFormation(x.formationShort.formationShortString);
+    const myNum = parseInt(LV.car.value, 10);
+    const me = veh.find((v) => v.num === myNum);
+    const t = hhmm(st.stopTime.arrivalTime) || hhmm(st.stopTime.departureTime);
+    const strip = veh.map((v) => {
+      if (v.gap) return `<li class="gap" aria-hidden="true"></li>`;
+      const cls = ["veh", v.type === "LK" ? "loco" : "", isFirst(v) ? "first" : "", v.num === myNum ? "me" : "", v.closed ? "closed" : ""].join(" ");
+      const tags = [];
+      if (/^W/.test(v.type)) tags.push("R");
+      if (v.type === "FA" || v.svc.includes("FZ")) tags.push("F");
+      if (v.svc.includes("BHP")) tags.push("♿");
+      if (v.svc.includes("VH") || v.svc.includes("VR")) tags.push("B");
+      return `<li><span class="sec">${esc(v.sector)}</span><span class="${cls}" title="${esc(vehicleServices(v).join(", "))}">${v.num != null ? v.num : esc(TYPE_LABEL[v.type] || v.type)}<small>${esc(TYPE_LABEL[v.type] && v.num != null ? TYPE_LABEL[v.type] : "")}${tags.length ? " " + tags.join(" ") : ""}</small></span></li>`;
+    }).join("");
+    const rows = [];
+    const addRows = (label, test) => {
+      const hit = veh.filter((v) => v.num != null && test(v));
+      if (!hit.length) return;
+      const secs = [...new Set(hit.map((v) => v.sector).filter(Boolean))].join(", ");
+      rows.push(`<tr><td>${label}</td><td class="n">${hit.map((v) => v.num).join(", ")}</td><td>${esc(secs) || "—"}</td></tr>`);
+    };
+    addRows("Ristorante / bistro", (v) => /^W/.test(v.type) && !v.notServed);
+    addRows("Zona famiglia", (v) => v.type === "FA" || v.svc.includes("FZ"));
+    addRows("Sedie a rotelle", (v) => v.svc.includes("BHP"));
+    addRows("Biciclette", (v) => v.svc.includes("VH") || v.svc.includes("VR"));
+    addRows("1ª classe", isFirst);
+    const goals = (x.formationShort.vehicleGoals || []).filter((g) => g.destinationStopPoint);
+    const split = goals.length > 1 ? `<div class="warn">Il treno si divide: ${goals.map((g) => `posizioni ${g.fromVehicleAtPosition}–${g.toVehicleAtPosition} per ${esc(g.destinationStopPoint.name)}`).join("; ")}. Controlla di essere nella parte giusta.</div>` : "";
+    LV.out.innerHTML = `
+      <div class="scn-head">
+        <h2>Treno ${esc(lvData.train)} a ${esc(st.stopPoint.name)}</h2>
+        <span class="tag">Dati FFS${st.track ? " · binario " + esc(st.track) : ""}${t ? " · " + t : ""}</span>
+      </div>
+      <div class="big">
+        ${me ? `<div class="num">${esc(me.sector || "?")}</div><div class="cap">settore dove si ferma la carrozza ${myNum}${me.closed ? " (carrozza chiusa)" : ""}. ${esc(vehicleServices(me).join(" · "))}</div>`
+             : `<div class="num">–</div><div class="cap">La carrozza ${myNum || ""} non è nel treno a questa fermata: forse il treno è stato diviso o la composizione è cambiata.</div>`}
+      </div>
+      ${split}
+      <div class="strip" aria-label="Composizione del treno lungo il marciapiede"><ol>${strip}</ol></div>
+      <div class="legend-line">Ordine lungo il marciapiede, con la lettera del settore sopra ogni carrozza. R ristorante · F famiglia · ♿ sedie a rotelle · B bici · bordo giallo = 1ª classe.</div>
+      ${rows.length ? `<div class="svc"><h3>Carrozze speciali a questa fermata</h3><div class="tablewrap"><table><thead><tr><th>Servizio</th><th>Carrozze</th><th>Settori</th></tr></thead><tbody>${rows.join("")}</tbody></table></div></div>` : ""}`;
+    LV.out.hidden = false;
+    // se si arriva a Zürich HB su un binario noto, allinea anche la stima
+    if (st.stopPoint.uic === 8503000 || /^Zürich HB/.test(st.stopPoint.name)) {
+      const tr = String(st.track || "").match(/\d+/);
+      if (tr && [...el.track.options].some((o) => o.value === tr[0]) && (el.station.value !== "zh" || el.track.value !== tr[0])) {
+        el.station.value = "zh"; el.track.value = tr[0]; render();
+      }
+    }
+    if (me && me.sector) el.plate.textContent = me.sector;
+  }
+
+  (function initLive() {
+    const saved = lvLoad();
+    LV.date.value = todayISO();
+    if (saved.token) LV.token.value = saved.token;
+    if (saved.evu) LV.evu.value = saved.evu;
+    if (saved.train) LV.train.value = saved.train;
+    LV.form.addEventListener("submit", lvFetch);
+    LV.stop.addEventListener("change", () => { lvSave(); renderLive(); });
+    LV.car.addEventListener("change", () => { lvSave(); renderLive(); });
+    LV.token.addEventListener("change", lvSave);
+  })();
 
   // Avvio: esempio Giruno, carrozza 3, arrivo a Zürich HB binario 7
   fillTracks();
