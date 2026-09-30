@@ -1,0 +1,43 @@
+# Configurazione di nginx per Dove scendo.
+# L'immagine ufficiale di nginx sostituisce ${API_TOKEN} all'avvio (solo le variabili definite
+# nell'ambiente, quindi le variabili di nginx come $uri restano intatte).
+# Il token resta sul server: la pagina chiama /api/formation e nginx aggiunge l'intestazione.
+
+map "${API_TOKEN}" $dove_scendo_proxy {
+    ""      "false";
+    default "true";
+}
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+        add_header Cache-Control "no-cache";
+    }
+
+    # La pagina chiede qui se il server ha il token
+    location = /api/config {
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        return 200 '{"proxy": $dove_scendo_proxy}';
+    }
+
+    # Solo questo servizio, solo in lettura
+    location = /api/formation {
+        limit_except GET { deny all; }
+        proxy_pass https://api.opentransportdata.swiss/formation/v1/formations_stop_based;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.opentransportdata.swiss;
+        proxy_set_header Authorization "Bearer ${API_TOKEN}";
+        proxy_set_header Origin "";
+        proxy_set_header Cookie "";
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 20s;
+        add_header Cache-Control "no-store";
+    }
+}

@@ -1,5 +1,10 @@
 # Dove scendo su CasaOS
-# 1. Copia index.html in /DATA/AppData/dove-scendo/html/ (app "Files" di CasaOS).
+# Il modo più semplice è lo script install-casaos.sh, che fa tutti i passi da solo.
+# A mano:
+# 1. Copia index.html in /DATA/AppData/dove-scendo/html/ e nginx.conf.template in
+#    /DATA/AppData/dove-scendo/nginx/default.conf.template (app "Files" di CasaOS).
+#    Facoltativo: metti il token API in /DATA/AppData/dove-scendo/.env come API_TOKEN=...
+#    così i dispositivi non devono inserirlo.
 # 2. CasaOS → "+" → "Install a customized app" → "Import" → incolla questo file.
 # 3. Dal telefono con Tailscale attivo apri http://<nome-del-server>:38471
 #    (nome MagicDNS del server, oppure il suo indirizzo Tailscale 100.x.y.z).
@@ -14,12 +19,23 @@ services:
       - target: 80
         published: "38471"
         protocol: tcp
+    environment:
+      # Token dell'API Train Formation Service: resta sul server, la pagina non lo vede.
+      API_TOKEN: ${API_TOKEN:-}
     volumes:
       - type: bind
         source: /DATA/AppData/dove-scendo/html
         target: /usr/share/nginx/html
         read_only: true
+      - type: bind
+        source: /DATA/AppData/dove-scendo/nginx/default.conf.template
+        target: /etc/nginx/templates/default.conf.template
+        read_only: true
     x-casaos:
+      envs:
+        - container: API_TOKEN
+          description:
+            en_us: Token API di opentransportdata.swiss (facoltativo)
       ports:
         - container: "80"
           description:
@@ -28,6 +44,9 @@ services:
         - container: /usr/share/nginx/html
           description:
             en_us: Cartella con index.html
+        - container: /etc/nginx/templates/default.conf.template
+          description:
+            en_us: Configurazione di nginx
 
 x-casaos:
   architectures:

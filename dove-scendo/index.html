@@ -934,9 +934,22 @@
     LV.statusWrap.classList.toggle("err", !!err);
     LV.clear.hidden = !lvData;
   }
+  // Se la pagina è servita da CasaOS con il token sul server, le richieste passano da /api/formation
+  let serverToken = false;
+  async function detectServerToken() {
+    if (!/^https?:$/.test(location.protocol)) return;
+    try {
+      const r = await fetch("api/config", { cache: "no-store" });
+      const cfg = r.ok ? await r.json() : null;
+      serverToken = !!(cfg && cfg.proxy === true);
+    } catch (e) { serverToken = false; }
+    LV.tokenBox.hidden = serverToken;
+    if (serverToken) LV.tokenBox.open = false;
+    updateTokenState();
+  }
   function updateTokenState() {
     const has = !!LV.token.value.trim();
-    LV.tokenState.textContent = has ? "salvato" : "da inserire";
+    LV.tokenState.textContent = serverToken ? "sul server" : has ? "salvato" : "da inserire";
   }
   function updateMode() {
     el.manualState.textContent = lvData ? "non serve con i dati FFS" : "";
@@ -951,15 +964,17 @@
     const train = LV.train.value.replace(/\D/g, "");
     const token = LV.token.value.trim();
     if (!train) { setStatus("Inserisci il numero del treno.", true); return; }
-    if (!token) { LV.tokenBox.open = true; LV.token.focus(); setStatus("Inserisci il token API.", true); return; }
+    if (!token && !serverToken) { LV.tokenBox.open = true; LV.token.focus(); setStatus("Inserisci il token API.", true); return; }
     LV.go.disabled = true;
     setStatus("Carico la composizione…");
-    const url = "https://api.opentransportdata.swiss/formation/v1/formations_stop_based?" +
-      new URLSearchParams({ evu: LV.evu.value, operationDate: LV.date.value || todayISO(), trainNumber: train });
+    const query = new URLSearchParams({ evu: LV.evu.value, operationDate: LV.date.value || todayISO(), trainNumber: train });
+    const url = serverToken ? "api/formation?" + query : "https://api.opentransportdata.swiss/formation/v1/formations_stop_based?" + query;
     try {
-      const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+      const r = await fetch(url, serverToken ? { cache: "no-store" } : { headers: { Authorization: "Bearer " + token } });
       const body = await r.json().catch(() => ({}));
-      if (r.status === 401 || r.status === 403) throw new Error("Il token non è valido o non ha accesso al servizio di composizione.");
+      if (r.status === 401 || r.status === 403) throw new Error(serverToken
+        ? "Il token salvato sul server non è valido: aggiornalo in /DATA/AppData/dove-scendo/.env e riavvia l'app."
+        : "Il token non è valido o non ha accesso al servizio di composizione.");
       if (!r.ok) throw new Error(body.error === "No realtime formation data found." ? "Nessuna composizione per questo treno in questa data. Controlla numero, compagnia e data." : "Il servizio ha risposto con un errore (" + r.status + ").");
       const stops = (body.formationsAtScheduledStops || []).filter((x) => x.formationShort && x.formationShort.formationShortString);
       if (!stops.length) throw new Error("Il servizio non ha restituito fermate con composizione.");
@@ -1141,6 +1156,7 @@
   if (lvSaved.train) LV.train.value = lvSaved.train;
   LV.tokenBox.open = !LV.token.value;
   updateTokenState();
+  detectServerToken();
   if (!saved) { el.model.value = "giruno"; el.track.value = "7"; }
   if (saved && saved.track) el.track.value = saved.track;
   applyStation();

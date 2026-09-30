@@ -7,6 +7,7 @@
 #   PORT=38471     porta di partenza (se è occupata si usa la prima libera successiva)
 #   HTTPS=1        pubblica anche https://<server>.<tailnet>.ts.net con "tailscale serve"
 #   NO_TAILSCALE=1 non installare né configurare Tailscale
+#   TOKEN=...      token API da salvare sul server (altrimenti viene chiesto; invio vuoto = nessun token)
 set -euo pipefail
 
 REPO_RAW="https://raw.githubusercontent.com/Peetah92/codespaces-jupyter/${BRANCH:-claude/train-arrival-position-estimator-kniy5d}/dove-scendo"
@@ -38,19 +39,48 @@ fi
 while port_busy "$PORT"; do PORT=$((PORT + 1)); done
 
 say "Scarico l'app in $APP_DIR (porta $PORT)"
-mkdir -p "$APP_DIR/html"
+mkdir -p "$APP_DIR/html" "$APP_DIR/nginx"
+curl -fsSL "$REPO_RAW/nginx.conf.template" -o "$APP_DIR/nginx/default.conf.template"
 curl -fsSL "$REPO_RAW/index.html" -o "$APP_DIR/html/index.html.new"
 mv "$APP_DIR/html/index.html.new" "$APP_DIR/html/index.html"
 curl -fsSL "$REPO_RAW/docker-compose.yml" \
   | sed -E "s/(published|port_map): \"[0-9]+\"/\1: \"$PORT\"/; s/:38471/:$PORT/" \
   > "$APP_DIR/docker-compose.yml"
 
+# Token API sul server: letto da nginx, mai mandato ai dispositivi
+ENV_FILE="$APP_DIR/.env"
+if [ -z "${TOKEN:-}" ] && ! grep -qs '^API_TOKEN=.' "$ENV_FILE" && [ -r /dev/tty ]; then
+  printf '\nToken API di opentransportdata.swiss (invio per saltare): '
+  read -rs TOKEN </dev/tty || TOKEN=""
+  echo
+fi
+if [ -n "${TOKEN:-}" ]; then
+  umask 077
+  printf 'API_TOKEN=%s\n' "$TOKEN" > "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+  echo "Token salvato in $ENV_FILE (leggibile solo da root)."
+elif grep -qs '^API_TOKEN=.' "$ENV_FILE"; then
+  echo "Uso il token già salvato in $ENV_FILE."
+else
+  echo "Nessun token sul server: ogni dispositivo dovrà inserire il proprio."
+fi
+
 say "Avvio il container"
-docker compose -p dove-scendo -f "$APP_DIR/docker-compose.yml" up -d
+ENV_ARGS=()
+[ -f "$ENV_FILE" ] && ENV_ARGS=(--env-file "$ENV_FILE")
+docker compose -p dove-scendo "${ENV_ARGS[@]}" -f "$APP_DIR/docker-compose.yml" up -d
 sleep 2
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" || true)"
 [ "$code" = "200" ] || die "la pagina non risponde su 127.0.0.1:$PORT (codice $code). Controlla: docker logs dove-scendo"
 echo "OK: http://127.0.0.1:$PORT/ risponde."
+if [ "$(curl -s "http://127.0.0.1:$PORT/api/config" || true)" = '{"proxy": true}' ]; then
+  api="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/formation?evu=SBBP&operationDate=$(date +%F)&trainNumber=1" || true)"
+  case "$api" in
+    200|400) echo "OK: il server raggiunge l'API FFS con il token.";;
+    401|403) echo "Attenzione: l'API FFS rifiuta il token salvato sul server (codice $api). Riesegui con TOKEN=... per cambiarlo.";;
+    *) echo "Attenzione: l'API FFS non risponde dal server (codice $api).";;
+  esac
+fi
 
 if [ "${NO_TAILSCALE:-0}" = "1" ]; then
   say "Fatto. Apri http://<ip-del-server>:$PORT"
