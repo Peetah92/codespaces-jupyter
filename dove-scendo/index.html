@@ -227,6 +227,26 @@
   .strip .gap { width: 12px; }
   .legend-line { font-size: 13px; color: var(--muted); }
 
+  /* Cambio: i due treni allineati per settore */
+  .xgrid { overflow-x: auto; }
+  .xgrid table { border-collapse: separate; border-spacing: 4px; min-width: max-content; }
+  .xgrid th { font: 800 15px/1 var(--font); color: var(--muted); text-align: center; padding: 2px 4px; }
+  .xgrid th.rowh { text-align: left; font: 600 13px/1.25 var(--font); color: var(--ink); white-space: nowrap; padding-right: 8px; }
+  .xgrid th.rowh small { display: block; font-weight: 400; color: var(--muted); }
+  .xgrid td { vertical-align: top; background: var(--bg); border-radius: 3px; padding: 4px; min-width: 52px; }
+  .xgrid .cars { display: flex; gap: 3px; justify-content: center; }
+  .xgrid .c {
+    min-width: 30px; padding: 5px 3px; border-radius: 3px; background: var(--car); color: var(--car-ink);
+    font: 700 13px/1 var(--font); text-align: center; border-top: 3px solid transparent; font-variant-numeric: tabular-nums;
+  }
+  .xgrid .c.first { border-top-color: var(--first); }
+  .xgrid .c.best { background: var(--red); color: var(--red-ink); }
+  .xgrid .c.good { box-shadow: inset 0 0 0 2px var(--red); }
+  .xgrid .c.target { box-shadow: inset 0 0 0 2px var(--ink); }
+  .xgrid .c.goal { background: var(--ink); color: var(--panel); }
+  .route { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 15px; }
+  .ok { color: #1a7f37; }
+  .late { color: var(--red); font-weight: 700; }
   .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px; padding: 10px 12px; font-size: 14px; }
   .empty { color: var(--muted); font-size: 15px; }
   .note { font-size: 14px; color: var(--muted); max-width: 72ch; }
@@ -238,7 +258,7 @@
     <div class="plate" id="plate" aria-hidden="true">–</div>
     <div>
       <h1>Dove scendo</h1>
-      <p>In quale settore del marciapiede ti fermi all'arrivo.</p>
+      <p id="subtitle">In quale settore del marciapiede ti fermi all'arrivo.</p>
     </div>
   </div>
 </header>
@@ -248,15 +268,14 @@
     <form class="panel" id="f" autocomplete="off" novalidate>
       <fieldset>
         <legend>Il tuo treno</legend>
-        <div class="row2">
-          <label for="lvTrain">Numero del treno
-            <input type="text" id="lvTrain" inputmode="numeric" placeholder="es. 709">
-          </label>
-          <label for="lvDate">Data
-            <input type="date" id="lvDate">
-          </label>
+        <div class="seg" role="radiogroup" aria-label="Cosa vuoi sapere">
+          <label><input type="radio" name="mode" value="arrive" checked><span>Dove scendo</span></label>
+          <label><input type="radio" name="mode" value="change"><span>Devo cambiare</span></label>
         </div>
         <div class="row2">
+          <label for="lvTrain"><span id="lvTrainLabel">Numero del treno</span>
+            <input type="text" id="lvTrain" inputmode="numeric" placeholder="es. 709">
+          </label>
           <label for="lvEvu">Compagnia
             <select id="lvEvu">
               <option value="SBBP">FFS</option>
@@ -272,13 +291,44 @@
               <option value="VDBB">VDBB</option>
             </select>
           </label>
+        </div>
+        <div class="row2" id="chgBox" hidden>
+          <label for="lvTrain2">Treno in coincidenza
+            <input type="text" id="lvTrain2" inputmode="numeric" placeholder="es. 2517">
+          </label>
+          <label for="lvEvu2">Compagnia
+            <select id="lvEvu2">
+              <option value="SBBP">FFS</option>
+              <option value="BLSP">BLS</option>
+              <option value="SOB">SOB</option>
+              <option value="THURBO">Thurbo</option>
+              <option value="TPF">TPF</option>
+              <option value="TRN">TRN</option>
+              <option value="ZB">Zentralbahn</option>
+              <option value="RhB">RhB</option>
+              <option value="MBC">MBC</option>
+              <option value="OeBB">OeBB</option>
+              <option value="VDBB">VDBB</option>
+            </select>
+          </label>
+        </div>
+        <div class="row2">
+          <label for="lvDate">Data
+            <input type="date" id="lvDate">
+          </label>
           <button type="submit" class="btn" id="lvGo">Carica</button>
         </div>
         <div class="status" id="lvStatusWrap" role="status"><span id="lvStatus"></span><button type="button" class="link" id="lvClear" hidden>Usa la stima manuale</button></div>
         <label for="lvStop" id="lvStopWrap" hidden>Fermata di arrivo
           <select id="lvStop"></select>
         </label>
-        <label for="car">La tua carrozza
+        <label for="lvXfer" id="lvXferWrap" hidden>Stazione del cambio
+          <select id="lvXfer"></select>
+        </label>
+        <label for="lvWant" id="lvWantWrap" hidden>Sul treno in coincidenza vuoi salire in
+          <select id="lvWant"></select>
+        </label>
+        <label for="car" id="carWrap">La tua carrozza
           <select id="car"></select>
           <span class="hint" id="carHint"></span>
         </label>
@@ -440,6 +490,7 @@
 
   <div class="note">
     <p><strong>Con i dati FFS</strong> il settore viene dal servizio ufficiale Train Formation Service di opentransportdata.swiss, per il treno e la fermata scelti. Nella versione pubblicata su claude.ai le richieste esterne sono bloccate: per i dati reali apri questo file dal browser o da GitHub Pages.</p>
+    <p><strong>Cambi.</strong> La carrozza consigliata è quella che ti fa scendere più vicino alla carrozza scelta del treno successivo. Di regola le lettere dei settori sono allineate tra i marciapiedi della stessa stazione. Nell'atrio di Zürich HB il percorso tiene conto anche dell'atrio, di ShopVille e del sottopassaggio centrale, con le distanze in metri.</p>
     <p><strong>Senza dati FFS</strong> la posizione è una stima: lunghezze e porte dei treni sono valori tipici, e il punto di arresto dipende dal macchinista. Nella stima la seconda unità è numerata da 21 e la terza da 41.</p>
     <p><strong>Zürich HB.</strong> Marciapiedi, respingenti, scale, ascensori e settori dell'atrio vengono da OpenStreetMap (settembre 2026). Per i binari 31–34 e 41–44 i settori non sono mappati.</p>
   </div>
@@ -468,7 +519,9 @@
   const LV = {
     train: $("lvTrain"), date: $("lvDate"), evu: $("lvEvu"), token: $("lvToken"), go: $("lvGo"),
     status: $("lvStatus"), statusWrap: $("lvStatusWrap"), clear: $("lvClear"),
-    stop: $("lvStop"), stopWrap: $("lvStopWrap"), out: $("live"), tokenBox: $("tokenBox"), tokenState: $("tokenState")
+    stop: $("lvStop"), stopWrap: $("lvStopWrap"), out: $("live"), tokenBox: $("tokenBox"), tokenState: $("tokenState"),
+    train2: $("lvTrain2"), evu2: $("lvEvu2"), chgBox: $("chgBox"), trainLabel: $("lvTrainLabel"),
+    xfer: $("lvXfer"), xferWrap: $("lvXferWrap"), want: $("lvWant"), wantWrap: $("lvWantWrap"), carWrap: $("carWrap")
   };
   const radio = (name) => (form.querySelector(`input[name="${name}"]:checked`) || {}).value;
 
@@ -861,6 +914,11 @@
       : "Il treno prosegue (es. Bern, Lugano): di solito ferma con la testa verso la fine del marciapiede.";
     el.offsetWrap.hidden = el.stop.value === "center";
     save();
+    if (radio("mode") === "change") {
+      el.results.innerHTML = chgData ? "" : `<section class="panel card"><h2 class="h">Cambio di treno</h2><p class="empty">Inserisci il treno su cui sei e quello in coincidenza, poi premi Carica. Ti dico in quale carrozza viaggiare per arrivare più vicino al treno successivo.</p></section>`;
+      if (!chgData) el.plate.textContent = "–";
+      return;
+    }
     if (lvData) { el.results.innerHTML = ""; return; } // con i dati FFS la stima non serve
     const vehicles = buildVehicles(model());
     const carNum = parseInt(el.car.value, 10);
@@ -901,7 +959,13 @@
       if (!p || p[2] === "F" || p[2] === "X") continue; // posizioni fittizie o veicoli fermi
       out.push({ sector, type: p[2], num: p[3] ? parseInt(p[3], 10) : null, svc: p[4] ? p[4].split(";").filter(Boolean) : [], closed: p[1].includes("-"), notServed: p[1].includes("%") });
     }
-    return out.filter((v, i, a) => !v.gap || (i > 0 && i < a.length - 1 && !a[i - 1].gap));
+    const res = out.filter((v, i, a) => !v.gap || (i > 0 && i < a.length - 1 && !a[i - 1].gap));
+    // Alcuni treni non hanno numeri di carrozza: in quel caso le indico per posizione dal settore A
+    const pax = res.filter((v) => !v.gap && v.type !== "LK" && v.type !== "D");
+    const ordered = pax.length > 1 && pax[0].sector > pax[pax.length - 1].sector ? pax.slice().reverse() : pax;
+    ordered.forEach((v, i) => (v.label = v.num != null ? String(v.num) : `${i + 1}ª dal settore ${ordered[0].sector || "A"}`));
+    ordered.forEach((v) => (v.short = v.num != null ? String(v.num) : "·"));
+    return res;
   }
   const isFirst = (v) => v.type === "1" || v.type === "12" || v.type === "W1";
   const isResto = (v) => /^W[R12]?$/.test(v.type);
@@ -923,6 +987,8 @@
     try {
       localStorage.setItem(LV_KEY, JSON.stringify({
         token: LV.token.value, evu: LV.evu.value, train: LV.train.value,
+        mode: radio("mode"), train2: LV.train2.value, evu2: LV.evu2.value,
+        want: LV.want.value || (lvLoad().want), xferName: LV.xfer.selectedOptions[0] ? LV.xfer.selectedOptions[0].dataset.name : undefined,
         car: lvData ? el.car.value : undefined,
         stopName: LV.stop.selectedOptions[0] ? LV.stop.selectedOptions[0].dataset.name : undefined
       }));
@@ -932,7 +998,7 @@
   function setStatus(text, err) {
     LV.status.textContent = text;
     LV.statusWrap.classList.toggle("err", !!err);
-    LV.clear.hidden = !lvData;
+    LV.clear.hidden = !lvData || radio("mode") === "change";
   }
   // Se la pagina è servita da CasaOS con il token sul server, le richieste passano da /api/formation
   let serverToken = false;
@@ -952,6 +1018,19 @@
     LV.tokenState.textContent = serverToken ? "sul server" : has ? "salvato" : "da inserire";
   }
   function updateMode() {
+    const change = radio("mode") === "change";
+    $("subtitle").textContent = change ? "In quale carrozza viaggiare per cambiare treno più in fretta." : "In quale settore del marciapiede ti fermi all'arrivo.";
+    LV.chgBox.hidden = !change;
+    LV.trainLabel.textContent = change ? "Treno su cui sei" : "Numero del treno";
+    LV.xferWrap.hidden = !(change && chgData);
+    LV.wantWrap.hidden = !(change && chgData);
+    LV.carWrap.hidden = change;
+    el.manual.hidden = change;
+    if (change) {
+      LV.stopWrap.hidden = true;
+      LV.clear.hidden = true;
+      return;
+    }
     el.manualState.textContent = lvData ? "non serve con i dati FFS" : "";
     el.carHint.textContent = lvData
       ? "Numeri reali di questo treno, come sulla carrozza e nell'app FFS."
@@ -959,38 +1038,277 @@
     LV.stopWrap.hidden = !lvData;
   }
 
+  // Scarica la composizione di un treno, fermata per fermata
+  async function fetchStops(train, evu, label) {
+    const query = new URLSearchParams({ evu, operationDate: LV.date.value || todayISO(), trainNumber: train });
+    const url = serverToken ? "api/formation?" + query : "https://api.opentransportdata.swiss/formation/v1/formations_stop_based?" + query;
+    const r = await fetch(url, serverToken ? { cache: "no-store" } : { headers: { Authorization: "Bearer " + LV.token.value.trim() } });
+    const body = await r.json().catch(() => ({}));
+    if (r.status === 401 || r.status === 403) throw new Error(serverToken
+      ? "Il token salvato sul server non è valido: aggiornalo in /DATA/AppData/dove-scendo/.env e riavvia l'app."
+      : "Il token non è valido o non ha accesso al servizio di composizione.");
+    if (!r.ok) throw new Error(body.error === "No realtime formation data found."
+      ? `Nessuna composizione per il ${label} ${train} in questa data. Controlla numero, compagnia e data.`
+      : "Il servizio ha risposto con un errore (" + r.status + ").");
+    const stops = (body.formationsAtScheduledStops || []).filter((x) => x.formationShort && x.formationShort.formationShortString);
+    if (!stops.length) throw new Error(`Il servizio non ha restituito fermate con composizione per il ${label} ${train}.`);
+    return { train, stops, updated: body.lastUpdate };
+  }
+
   async function lvFetch(e) {
     e.preventDefault();
+    const change = radio("mode") === "change";
     const train = LV.train.value.replace(/\D/g, "");
-    const token = LV.token.value.trim();
-    if (!train) { setStatus("Inserisci il numero del treno.", true); return; }
-    if (!token && !serverToken) { LV.tokenBox.open = true; LV.token.focus(); setStatus("Inserisci il token API.", true); return; }
+    const train2 = LV.train2.value.replace(/\D/g, "");
+    if (!train) { setStatus(change ? "Inserisci il numero del treno su cui sei." : "Inserisci il numero del treno.", true); return; }
+    if (change && !train2) { setStatus("Inserisci il numero del treno in coincidenza.", true); return; }
+    if (!LV.token.value.trim() && !serverToken) { LV.tokenBox.open = true; LV.token.focus(); setStatus("Inserisci il token API.", true); return; }
     LV.go.disabled = true;
-    setStatus("Carico la composizione…");
-    const query = new URLSearchParams({ evu: LV.evu.value, operationDate: LV.date.value || todayISO(), trainNumber: train });
-    const url = serverToken ? "api/formation?" + query : "https://api.opentransportdata.swiss/formation/v1/formations_stop_based?" + query;
+    setStatus(change ? "Carico le composizioni dei due treni…" : "Carico la composizione…");
     try {
-      const r = await fetch(url, serverToken ? { cache: "no-store" } : { headers: { Authorization: "Bearer " + token } });
-      const body = await r.json().catch(() => ({}));
-      if (r.status === 401 || r.status === 403) throw new Error(serverToken
-        ? "Il token salvato sul server non è valido: aggiornalo in /DATA/AppData/dove-scendo/.env e riavvia l'app."
-        : "Il token non è valido o non ha accesso al servizio di composizione.");
-      if (!r.ok) throw new Error(body.error === "No realtime formation data found." ? "Nessuna composizione per questo treno in questa data. Controlla numero, compagnia e data." : "Il servizio ha risposto con un errore (" + r.status + ").");
-      const stops = (body.formationsAtScheduledStops || []).filter((x) => x.formationShort && x.formationShort.formationShortString);
-      if (!stops.length) throw new Error("Il servizio non ha restituito fermate con composizione.");
-      lvData = { train, stops };
-      fillLiveStops();
+      if (change) {
+        const [x, y] = await Promise.all([fetchStops(train, LV.evu.value, "treno"), fetchStops(train2, LV.evu2.value, "treno")]);
+        chgData = { x, y };
+        fillTransfer();
+        setStatus(`Dati FFS aggiornati alle ${hhmm(x.updated) || "?"}.`);
+      } else {
+        const x = await fetchStops(train, LV.evu.value, "treno");
+        lvData = { train: x.train, stops: x.stops };
+        fillLiveStops();
+        setStatus(`Dati FFS aggiornati alle ${hhmm(x.updated) || "?"}.`);
+      }
       LV.tokenBox.open = false;
-      setStatus(`Dati FFS aggiornati alle ${hhmm(body.lastUpdate) || "?"}.`);
     } catch (err) {
-      clearLive(false);
+      if (change) { chgData = null; LV.out.hidden = true; updateMode(); render(); } else clearLive(false);
       setStatus(err instanceof TypeError
-        ? "Non riesco a raggiungere il servizio. Su claude.ai le richieste esterne sono bloccate: apri il file dal browser o da GitHub Pages."
+        ? "Non riesco a raggiungere il servizio. Su claude.ai le richieste esterne sono bloccate: apri il file dal browser, da CasaOS o da GitHub Pages."
         : err.message, true);
     } finally {
       LV.go.disabled = false;
       lvSave();
     }
+  }
+
+  // ================= Cambio treno =================
+  let chgData = null;
+  const stopTime = (st, which) => st.stopTime[which] ? new Date(st.stopTime[which]) : null;
+  // Binari dell'atrio di Zürich HB che condividono lo stesso marciapiede
+  const ZH_PLATFORM = { 3: 0, 4: 1, 5: 1, 6: 2, 7: 2, 8: 3, 9: 3, 10: 4, 11: 4, 12: 5, 13: 5, 14: 6, 15: 6, 16: 7, 17: 7, 18: 8 };
+  const isZh = (st) => st.stopPoint.uic === 8503000 || /^Zürich HB/.test(st.stopPoint.name);
+  const trackNo = (st) => (String(st.track || "").match(/\d+/) || [])[0];
+
+  // Fermate in cui si può passare dal treno x al treno y
+  function transferStops() {
+    const out = [];
+    chgData.x.stops.forEach((xs, i) => {
+      const a = xs.scheduledStop;
+      const arr = stopTime(a, "arrivalTime");
+      if (!arr) return; // dalla prima fermata non si cambia
+      chgData.y.stops.forEach((ys, j) => {
+        const b = ys.scheduledStop;
+        const dep = stopTime(b, "departureTime");
+        if (!dep || b.stopPoint.uic !== a.stopPoint.uic) return;
+        const min = Math.round((dep - arr) / 60000);
+        if (min >= 0 && min <= 180) out.push({ i, j, min, name: a.stopPoint.name });
+      });
+    });
+    return out;
+  }
+
+  function fillTransfer() {
+    const saved = lvLoad();
+    const list = transferStops();
+    if (!list.length) {
+      chgData = null; LV.out.hidden = true; updateMode(); render();
+      throw new Error("I due treni non hanno una stazione in comune con la coincidenza dopo l'arrivo, in questa data.");
+    }
+    LV.xfer.innerHTML = list.map((t, k) => {
+      const a = chgData.x.stops[t.i].scheduledStop, b = chgData.y.stops[t.j].scheduledStop;
+      return `<option value="${k}" data-name="${esc(t.name)}">${esc(t.name)} · ${hhmm(a.stopTime.arrivalTime)} bin. ${esc(a.track || "?")} → ${hhmm(b.stopTime.departureTime)} bin. ${esc(b.track || "?")}</option>`;
+    }).join("");
+    LV.xfer._list = list;
+    let k = list.findIndex((t) => t.name === saved.xferName);
+    if (k < 0) k = list.findIndex((t) => /^Zürich HB/.test(t.name));
+    if (k < 0) k = 0;
+    LV.xfer.value = String(k);
+    fillWant(saved.want);
+    updateMode();
+    render();
+    renderChange();
+  }
+
+  function currentTransfer() {
+    const t = LV.xfer._list[parseInt(LV.xfer.value, 10) || 0];
+    const xs = chgData.x.stops[t.i], ys = chgData.y.stops[t.j];
+    return { t, a: xs.scheduledStop, b: ys.scheduledStop,
+      xv: parseFormation(xs.formationShort.formationShortString), yv: parseFormation(ys.formationShort.formationShortString) };
+  }
+
+  const WANTS = [
+    ["any", "Una carrozza qualsiasi", (v) => true],
+    ["first", "Una carrozza di 1ª classe", isFirst],
+    ["second", "Una carrozza di 2ª classe", (v) => v.type === "2" || v.type === "12" || v.type === "W2" || v.type === "FA"],
+    ["resto", "La carrozza ristorante", (v) => isResto(v) && !v.notServed],
+    ["family", "La zona famiglia", isFamily],
+    ["wheel", "I posti per sedie a rotelle", (v) => v.svc.includes("BHP")],
+    ["bike", "Una carrozza con posti bici", hasBike]
+  ];
+  function fillWant(prefer) {
+    const { yv } = currentTransfer();
+    const cars = yv.filter((v) => v.label && !v.closed);
+    const opts = WANTS.filter(([id, , f]) => id === "any" || cars.some(f)).map(([id, lab]) => `<option value="${id}">${lab}</option>`);
+    opts.push(...cars.map((v) => `<option value="car:${esc(v.label)}">Carrozza ${esc(v.label)}${v.sector ? " · settore " + esc(v.sector) : ""}</option>`));
+    const prev = prefer || LV.want.value;
+    LV.want.innerHTML = opts.join("");
+    if ([...LV.want.options].some((o) => o.value === prev)) LV.want.value = prev;
+  }
+  function wantFilter() {
+    const w = LV.want.value || "any";
+    if (w.startsWith("car:")) { const lab = w.slice(4); return (v) => v.label === lab; }
+    return (WANTS.find(([id]) => id === w) || WANTS[0])[2];
+  }
+
+  // Posizione lungo il marciapiede di ogni veicolo, ricavata dai settori.
+  // Atrio di Zürich HB: in metri dai respingenti. Altrove: in "settori" (A = 0), assumendo
+  // che le lettere dei settori siano allineate tra i marciapiedi della stazione, come di regola in Svizzera.
+  function placeOnPlatform(veh, st) {
+    const list = veh.filter((v) => !v.gap && v.sector);
+    const letters = list.map((v) => v.sector);
+    const descending = letters.length > 1 && letters[0] > letters[letters.length - 1];
+    const bySec = {};
+    list.forEach((v) => (bySec[v.sector] = bySec[v.sector] || []).push(v));
+    const tr = trackNo(st);
+    const halle = isZh(st) && zhGroupOf(tr) && zhGroupOf(tr).secLens;
+    let bounds = null;
+    if (halle) {
+      const g = zhGroupOf(tr), L = g.tracks[tr];
+      const lens = [...g.secLens, L - g.secLens.reduce((a, b) => a + b, 0)];
+      bounds = {}; let p = 0;
+      lens.forEach((len, i) => { bounds[LETTERS[i]] = [p, p + len]; p += len; });
+    }
+    Object.entries(bySec).forEach(([sec, vs]) => {
+      vs.forEach((v, k) => {
+        let f = (k + 0.5) / vs.length;
+        if (descending) f = 1 - f;
+        v.spos = sec.charCodeAt(0) - 65 + f; // sempre in "settori"
+        v.pos = bounds && bounds[sec] ? bounds[sec][0] + f * (bounds[sec][1] - bounds[sec][0]) : v.spos;
+      });
+    });
+    return { unit: bounds ? "m" : "sec", track: tr, halle: !!bounds, zh: isZh(st) };
+  }
+
+  // Costo del percorso tra la porta del treno x (posizione px) e il treno y (posizione py)
+  function transferCost(vx, vy, ax, by) {
+    if (ax.unit === "m" && by.unit === "m") {
+      const px = vx.pos, py = vy.pos;
+      const lat = Math.abs((ZH_PLATFORM[ax.track] ?? 0) - (ZH_PLATFORM[by.track] ?? 0)) * 12;
+      if (ZH_PLATFORM[ax.track] === ZH_PLATFORM[by.track]) return { cost: Math.abs(px - py) + 4, via: "same", m: Math.abs(px - py) + 4 };
+      const exitsAt = (tr) => {
+        const g = zhGroupOf(tr);
+        const ex = (g.exitsByTrack && g.exitsByTrack[tr]) || g.exits;
+        const pick = (re) => { const xs = ex.filter(([, n]) => re.test(n)).map(([m]) => m); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; };
+        return { atrio: 0, shopville: pick(/ShopVille|livello -1/), centrale: pick(/centrale/) };
+      };
+      const ex = exitsAt(ax.track), ey = exitsAt(by.track);
+      const opts = [{ via: "atrio", m: px + py + lat }];
+      if (ex.shopville != null && ey.shopville != null) opts.push({ via: "shopville", m: Math.abs(px - ex.shopville) + Math.abs(ey.shopville - py) + lat + 30 });
+      if (ex.centrale != null && ey.centrale != null) opts.push({ via: "centrale", m: Math.abs(px - ex.centrale) + Math.abs(ey.centrale - py) + lat + 30 });
+      const best = opts.sort((p, q) => p.m - q.m)[0];
+      return { cost: best.m, via: best.via, m: best.m };
+    }
+    // Altrimenti confronto in settori (con un binario dell'atrio e uno sotterraneo i metri non sono confrontabili)
+    const ZH_UNDER = { 31: "L1", 32: "L1", 33: "L2", 34: "L2", 41: "M1", 42: "M1", 43: "M2", 44: "M2" };
+    const same = ax.track && (ax.track === by.track || (ax.zh && by.zh && ZH_UNDER[ax.track] && ZH_UNDER[ax.track] === ZH_UNDER[by.track]));
+    return { cost: Math.abs(vx.spos - vy.spos), via: same ? "same" : "generic" };
+  }
+
+  const VIA_TEXT = {
+    same: "Resta sul marciapiede e cammina fino alla carrozza del treno in coincidenza.",
+    atrio: "Passa dall'atrio (Querhalle), in testa ai binari: nessuna scala.",
+    shopville: "Scendi con le scale verso ShopVille e risali al binario di partenza.",
+    centrale: "Usa il sottopassaggio centrale e risali al binario di partenza.",
+    generic: "Usa le scale o il sottopassaggio più vicini e risali al binario di partenza nello stesso settore."
+  };
+
+  function renderChange() {
+    if (!chgData) { LV.out.hidden = true; return; }
+    const { t, a, b, xv, yv } = currentTransfer();
+    const ax = placeOnPlatform(xv, a), by = placeOnPlatform(yv, b);
+    const want = wantFilter();
+    const pax = (v) => v.label && !v.closed && v.pos != null;
+    const targets = yv.filter((v) => pax(v) && want(v));
+    const xcars = xv.filter(pax);
+    let html;
+    if (!targets.length || !xcars.length) {
+      html = `<div class="empty">Non trovo carrozze adatte in uno dei due treni a questa fermata.</div>`;
+    } else {
+      const scored = xcars.map((v) => {
+        let best = null;
+        targets.forEach((y) => { const c = transferCost(v, y, ax, by); if (!best || c.cost < best.cost) best = { ...c, y }; });
+        return { v, ...best };
+      }).sort((p, q) => p.cost - q.cost);
+      const top = scored[0];
+      const tol = ax.unit === "m" && by.unit === "m" ? 25 : 0.6;
+      const good = scored.filter((s) => s.cost - top.cost <= tol && s.v !== top.v);
+      const goodSet = new Set([top.v, ...good.map((s) => s.v)]);
+      const metres = top.m != null ? Math.round(top.m) : null;
+      const walkMin = metres != null ? Math.max(1, Math.round(metres / WALK / 60)) : null;
+      const late = walkMin != null && walkMin + 1 > t.min;
+      const secGap = top.m == null ? Math.round(Math.abs(top.v.spos - top.y.spos)) : null;
+      const distText = metres != null ? `~${fmtM(metres)} m · ${walkMin} min a piedi`
+        : secGap === 0 ? "stesso settore" : `circa ${secGap} settor${secGap === 1 ? "e" : "i"} di distanza`;
+
+      // Griglia: i due treni allineati per settore
+      const secs = [...new Set([...xv, ...yv].filter((v) => !v.gap && v.sector).map((v) => v.sector))].sort();
+      const cell = (vs, kind) => secs.map((sec) => {
+        const here = vs.filter((v) => !v.gap && v.sector === sec && v.label).sort((p, q) => p.pos - q.pos);
+        return `<td><div class="cars">${here.map((v) => {
+          const cls = ["c", isFirst(v) ? "first" : ""];
+          if (kind === "x") cls.push(v === top.v ? "best" : goodSet.has(v) ? "good" : "");
+          else cls.push(v === top.y ? "goal" : targets.includes(v) ? "target" : "");
+          return `<span class="${cls.join(" ")}" title="${esc(["Carrozza " + v.label, ...vehicleServices(v)].join(", "))}">${esc(v.short)}</span>`;
+        }).join("")}</div></td>`;
+      }).join("");
+      const grid = `<div class="xgrid"><table>
+        <tr><th></th>${secs.map((sc) => `<th>${esc(sc)}</th>`).join("")}</tr>
+        <tr><th class="rowh">Arrivi · ${esc(chgData.x.train)}<small>bin. ${esc(a.track || "?")}</small></th>${cell(xv, "x")}</tr>
+        <tr><th class="rowh">Riparti · ${esc(chgData.y.train)}<small>bin. ${esc(b.track || "?")}</small></th>${cell(yv, "y")}</tr>
+      </table></div>`;
+
+      const warns = [];
+      if (ax.unit !== by.unit || (ax.unit === "sec" && isZh(a)))
+        warns.push("Qui i settori dei due binari potrebbero non essere allineati (a Zürich HB i binari sotterranei non hanno settori mappati): considera il consiglio come indicativo.");
+      if (late) warns.push(`Il cambio è stretto: servono circa ${walkMin} min a piedi e hai ${t.min} min.`);
+
+      html = `
+        <div class="big">
+          <div class="sector${(top.v.sector || "").length > 1 ? " wide" : ""}">${esc(top.v.sector || "?")}</div>
+          <div class="cap">Viaggia nella <strong>carrozza ${esc(top.v.label)}</strong> del treno ${esc(chgData.x.train)}${isFirst(top.v) ? " (1ª classe)" : ""}.
+          Scendendo sei al settore ${esc(top.v.sector)} del binario ${esc(a.track || "?")}, vicino alla <strong>carrozza ${esc(top.y.label)}</strong> del treno ${esc(chgData.y.train)} (settore ${esc(top.y.sector)}, binario ${esc(b.track || "?")}).</div>
+        </div>
+        <dl class="facts">
+          <div><dt>Arrivo</dt><dd>${hhmm(a.stopTime.arrivalTime)} · bin. ${esc(a.track || "?")}</dd></div>
+          <div><dt>Partenza</dt><dd>${hhmm(b.stopTime.departureTime)} · bin. ${esc(b.track || "?")}</dd></div>
+          <div><dt>Tempo per il cambio</dt><dd class="${late ? "late" : "ok"}">${t.min} min</dd></div>
+          <div><dt>Percorso</dt><dd>${distText}</dd></div>
+        </dl>
+        <ol class="route">
+          <li>Prima di arrivare spostati nella carrozza ${esc(top.v.label)}.</li>
+          <li>${VIA_TEXT[top.via] || VIA_TEXT.generic}</li>
+          <li>Sali sulla carrozza ${esc(top.y.label)} del treno ${esc(chgData.y.train)}${vehicleServices(top.y).length ? " (" + esc(vehicleServices(top.y).join(", ")) + ")" : ""}.</li>
+        </ol>
+        ${good.length ? `<div class="chips"><h3>Vanno bene anche</h3><ul>${good.slice(0, 6).map((s) => `<li>Carrozza ${esc(s.v.label)} · settore ${esc(s.v.sector)}</li>`).join("")}</ul></div>` : ""}
+        ${warns.map((w) => `<div class="warn">${w}</div>`).join("")}
+        ${grid}
+        <div class="legend-line">I due treni allineati per settore. Rosso: la carrozza consigliata (bordo rosso: alternative ugualmente comode). Nero: la carrozza dove sali; bordo nero: altre carrozze che vanno bene. Bordo giallo: 1ª classe.</div>`;
+      el.plate.textContent = top.v.sector || "–";
+    }
+    LV.out.innerHTML = `
+      <div class="card-head">
+        <h2>Cambio a ${esc(t.name)}</h2>
+        <span class="tag live">Dati FFS · ${esc(chgData.x.train)} → ${esc(chgData.y.train)}</span>
+      </div>${html}`;
+    LV.out.hidden = false;
   }
 
   function fillLiveStops() {
@@ -1127,7 +1445,20 @@
   form.addEventListener("submit", lvFetch);
   form.addEventListener("change", (e) => {
     const id = e.target.id, name = e.target.name;
+    if (name === "mode") {
+      const change = radio("mode") === "change";
+      LV.out.hidden = true;
+      updateMode();
+      render();
+      if (change && chgData) renderChange();
+      if (!change && lvData) renderLive();
+      setStatus("");
+      lvSave();
+      return;
+    }
     if (id.startsWith("lv")) {
+      if (id === "lvXfer") { fillWant(); lvSave(); renderChange(); }
+      if (id === "lvWant") { lvSave(); renderChange(); }
       if (id === "lvStop") { lvSave(); renderLive(); }
       if (id === "lvToken") { lvSave(); updateTokenState(); }
       return;
@@ -1154,6 +1485,9 @@
   if (lvSaved.token) LV.token.value = lvSaved.token;
   if (lvSaved.evu) LV.evu.value = lvSaved.evu;
   if (lvSaved.train) LV.train.value = lvSaved.train;
+  if (lvSaved.train2) LV.train2.value = lvSaved.train2;
+  if (lvSaved.evu2) LV.evu2.value = lvSaved.evu2;
+  if (lvSaved.mode === "change") form.querySelector('input[name="mode"][value="change"]').checked = true;
   LV.tokenBox.open = !LV.token.value;
   updateTokenState();
   detectServerToken();
