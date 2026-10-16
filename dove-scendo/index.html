@@ -258,7 +258,7 @@
     <div class="plate" id="plate" aria-hidden="true">–</div>
     <div>
       <h1>Dove scendo</h1>
-      <p id="subtitle">In quale settore del marciapiede ti fermi all'arrivo.</p>
+      <p id="subtitle">Finder porte: dove si fermano la tua carrozza e le sue porte all'arrivo.</p>
     </div>
   </div>
 </header>
@@ -268,9 +268,9 @@
     <form class="panel" id="f" autocomplete="off" novalidate>
       <fieldset>
         <legend>Il tuo treno</legend>
-        <div class="seg" role="radiogroup" aria-label="Cosa vuoi sapere">
-          <label><input type="radio" name="mode" value="arrive" checked><span>Dove scendo</span></label>
-          <label><input type="radio" name="mode" value="change"><span>Devo cambiare</span></label>
+        <div class="seg" role="radiogroup" aria-label="Modalità">
+          <label><input type="radio" name="mode" value="arrive" checked><span>Finder porte</span></label>
+          <label><input type="radio" name="mode" value="change"><span>Cambio master</span></label>
         </div>
         <div class="row2">
           <label for="lvTrain"><span id="lvTrainLabel">Numero del treno</span>
@@ -490,7 +490,7 @@
 
   <div class="note">
     <p><strong>Con i dati FFS</strong> il settore viene dal servizio ufficiale Train Formation Service di opentransportdata.swiss, per il treno e la fermata scelti. Nella versione pubblicata su claude.ai le richieste esterne sono bloccate: per i dati reali apri questo file dal browser o da GitHub Pages.</p>
-    <p><strong>Cambi.</strong> La carrozza consigliata è quella che ti fa scendere più vicino alla carrozza scelta del treno successivo. Di regola le lettere dei settori sono allineate tra i marciapiedi della stessa stazione. Nell'atrio di Zürich HB il percorso tiene conto anche dell'atrio, di ShopVille e del sottopassaggio centrale, con le distanze in metri.</p>
+    <p><strong>Cambio master.</strong> La carrozza consigliata è quella che ti fa scendere più vicino alla carrozza scelta del treno successivo. Di regola le lettere dei settori sono allineate tra i marciapiedi della stessa stazione. Nell'atrio di Zürich HB il percorso tiene conto anche dell'atrio, di ShopVille e del sottopassaggio centrale, con le distanze in metri.</p>
     <p><strong>Senza dati FFS</strong> la posizione è una stima: lunghezze e porte dei treni sono valori tipici, e il punto di arresto dipende dal macchinista. Nella stima la seconda unità è numerata da 21 e la terza da 41.</p>
     <p><strong>Zürich HB.</strong> Marciapiedi, respingenti, scale, ascensori e settori dell'atrio vengono da OpenStreetMap (settembre 2026). Per i binari 31–34 e 41–44 i settori non sono mappati.</p>
   </div>
@@ -915,7 +915,7 @@
     el.offsetWrap.hidden = el.stop.value === "center";
     save();
     if (radio("mode") === "change") {
-      el.results.innerHTML = chgData ? "" : `<section class="panel card"><h2 class="h">Cambio di treno</h2><p class="empty">Inserisci il treno su cui sei e quello in coincidenza, poi premi Carica. Ti dico in quale carrozza viaggiare per arrivare più vicino al treno successivo.</p></section>`;
+      el.results.innerHTML = chgData ? "" : `<section class="panel card"><h2 class="h">Cambio master</h2><p class="empty">Inserisci il treno su cui sei e quello in coincidenza, poi premi Carica. Ti dico in quale carrozza viaggiare per arrivare più vicino al treno successivo.</p></section>`;
       if (!chgData) el.plate.textContent = "–";
       return;
     }
@@ -1019,7 +1019,7 @@
   }
   function updateMode() {
     const change = radio("mode") === "change";
-    $("subtitle").textContent = change ? "In quale carrozza viaggiare per cambiare treno più in fretta." : "In quale settore del marciapiede ti fermi all'arrivo.";
+    $("subtitle").textContent = change ? "Cambio master: in quale carrozza viaggiare per cambiare treno più in fretta." : "Finder porte: dove si fermano la tua carrozza e le sue porte all'arrivo.";
     LV.chgBox.hidden = !change;
     LV.trainLabel.textContent = change ? "Treno su cui sei" : "Numero del treno";
     LV.xferWrap.hidden = !(change && chgData);
